@@ -4,10 +4,12 @@ import {
   Box,
   Button,
   Chip,
+  Checkbox,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
+  FormControlLabel,
   MenuItem,
   Paper,
   Stack,
@@ -39,6 +41,7 @@ type Tx = {
   currency: string;
   occurred_at: string;
   note?: string | null;
+  is_voided: boolean;
   categories: Category[];
   tags: Tag[];
 };
@@ -65,6 +68,17 @@ export function TransactionsPage() {
     "dateRange:transactions",
     30
   );
+  const [voided, setVoided] = useState(false);
+
+  useEffect(() => {
+    const key = "filter:transactions:voided";
+    const saved = localStorage.getItem(key);
+    if (saved === "true") setVoided(true);
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem("filter:transactions:voided", voided ? "true" : "false");
+  }, [voided]);
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Tx | null>(null);
@@ -80,9 +94,10 @@ export function TransactionsPage() {
     () => ({
       start: start.format("YYYY-MM-DD"),
       end: end.format("YYYY-MM-DD"),
-      q: q || undefined
+      q: q || undefined,
+      voided: voided ? true : undefined
     }),
-    [start, end, q]
+    [start, end, q, voided]
   );
 
   async function loadMeta() {
@@ -157,6 +172,11 @@ export function TransactionsPage() {
     await load();
   }
 
+  async function toggleVoided(tx: Tx) {
+    await api.patch(`/transactions/${tx.id}`, { is_voided: !tx.is_voided });
+    await load();
+  }
+
   async function ensureTagByName(name: string): Promise<Tag> {
     const trimmed = name.trim();
     const existing = tags.find((t) => t.name.toLowerCase() === trimmed.toLowerCase());
@@ -205,6 +225,10 @@ export function TransactionsPage() {
               setPreset("custom");
               setEnd(v);
             }}
+          />
+          <FormControlLabel
+            control={<Checkbox checked={voided} onChange={(e) => setVoided(e.target.checked)} />}
+            label={t("voided")}
           />
           <TextField
             label={t("search")}
@@ -258,6 +282,9 @@ export function TransactionsPage() {
                   {it.note || ""}
                 </TableCell>
                 <TableCell align="right">
+                  <Button size="small" onClick={() => toggleVoided(it)}>
+                    {it.is_voided ? t("restore") : t("void")}
+                  </Button>
                   <Button size="small" onClick={() => openEdit(it)}>
                     Edit
                   </Button>

@@ -57,5 +57,8 @@
   "presetLast6Months": "半年内",
   "presetLast1Year": "一年内",
   "presetLastYear": "去年",
-  "presetCustom": "自定义"
+  "presetCustom": "自定义",
+  "voided": "已作废",
+  "void": "作废",
+  "restore": "恢复"
 }

@@ -26,6 +26,7 @@ class TransactionUpdate(BaseModel):
     note: str | None = None
     category_ids: list[int] | None = None
     tag_ids: list[int] | None = None
+    is_voided: bool | None = None
 
 
 class TransactionOut(BaseModel):
@@ -36,6 +37,7 @@ class TransactionOut(BaseModel):
     currency: str
     occurred_at: datetime
     note: str | None
+    is_voided: bool
     created_at: datetime
     categories: list[CategoryOut]
     tags: list[TagOut]
@@ -44,4 +46,3 @@ class TransactionOut(BaseModel):
 class TransactionList(BaseModel):
     items: list[TransactionOut]
     total: int
-

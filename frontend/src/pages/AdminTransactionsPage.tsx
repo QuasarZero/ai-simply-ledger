@@ -2,7 +2,9 @@ import React, { useEffect, useMemo, useState } from "react";
 import {
   Box,
   Button,
+  Checkbox,
   Paper,
+  FormControlLabel,
   Stack,
   Table,
   TableBody,
@@ -29,6 +31,7 @@ type Tx = {
   currency: string;
   occurred_at: string;
   note?: string | null;
+  is_voided: boolean;
 };
 
 export function AdminTransactionsPage() {
@@ -39,14 +42,26 @@ export function AdminTransactionsPage() {
     "dateRange:adminTransactions",
     30
   );
+  const [voided, setVoided] = useState(false);
+
+  useEffect(() => {
+    const key = "filter:adminTransactions:voided";
+    const saved = localStorage.getItem(key);
+    if (saved === "true") setVoided(true);
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem("filter:adminTransactions:voided", voided ? "true" : "false");
+  }, [voided]);
 
   const params = useMemo(
     () => ({
       start: start.format("YYYY-MM-DD"),
       end: end.format("YYYY-MM-DD"),
-      user_id: userId ? Number(userId) : undefined
+      user_id: userId ? Number(userId) : undefined,
+      voided: voided ? true : undefined
     }),
-    [start, end, userId]
+    [start, end, userId, voided]
   );
 
   async function load() {
@@ -60,6 +75,11 @@ export function AdminTransactionsPage() {
 
   async function del(txId: number) {
     await api.delete(`/admin/transactions/${txId}`);
+    await load();
+  }
+
+  async function toggleVoided(tx: Tx) {
+    await api.patch(`/admin/transactions/${tx.id}`, { is_voided: !tx.is_voided });
     await load();
   }
 
@@ -90,6 +110,10 @@ export function AdminTransactionsPage() {
               setPreset("custom");
               setEnd(v);
             }}
+          />
+          <FormControlLabel
+            control={<Checkbox checked={voided} onChange={(e) => setVoided(e.target.checked)} />}
+            label={t("voided")}
           />
           <TextField
             label="User ID"
@@ -133,6 +157,9 @@ export function AdminTransactionsPage() {
                   {it.note || ""}
                 </TableCell>
                 <TableCell align="right">
+                  <Button size="small" onClick={() => toggleVoided(it)}>
+                    {it.is_voided ? t("restore") : t("void")}
+                  </Button>
                   <Button color="error" size="small" onClick={() => del(it.id)}>
                     Delete
                   </Button>

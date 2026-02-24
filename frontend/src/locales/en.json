@@ -57,5 +57,8 @@
   "presetLast6Months": "Last 6 months",
   "presetLast1Year": "Last 1 year",
   "presetLastYear": "Last year",
-  "presetCustom": "Custom"
+  "presetCustom": "Custom",
+  "voided": "Voided",
+  "void": "Void",
+  "restore": "Restore"
 }

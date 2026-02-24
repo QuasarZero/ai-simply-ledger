@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.deps import get_current_user, require_admin
-from app.models import Tag, transaction_tags, User
+from app.models import Tag, Transaction, transaction_tags, User
 from app.schemas.tags import TagCreate, TagOut, TagUpdate
 
 router = APIRouter(prefix="/tags")
@@ -22,6 +22,8 @@ def list_tags(db: Session = Depends(get_db)):
             func.count(transaction_tags.c.transaction_id).label("used_count"),
         )
         .outerjoin(transaction_tags, Tag.id == transaction_tags.c.tag_id)
+        .outerjoin(Transaction, Transaction.id == transaction_tags.c.transaction_id)
+        .filter((Transaction.id.is_(None)) | (Transaction.is_voided.is_(False)))
         .group_by(Tag.id)
         .order_by(Tag.name.asc())
         .all()

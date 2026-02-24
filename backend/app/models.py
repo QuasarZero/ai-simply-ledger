@@ -91,6 +91,7 @@ class Transaction(Base):
     currency: Mapped[str] = mapped_column(String(8), default="CNY")
     occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    is_voided: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     __table_args__ = (CheckConstraint("type in ('income', 'expense')", name="ck_transactions_type"),)
@@ -100,4 +101,3 @@ class Transaction(Base):
         secondary=transaction_categories, back_populates="transactions"
     )
     tags: Mapped[list[Tag]] = relationship(secondary=transaction_tags, back_populates="transactions")
-

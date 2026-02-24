@@ -31,6 +31,7 @@ def _tx_to_out(tx: Transaction) -> TransactionOut:
         currency=tx.currency,
         occurred_at=tx.occurred_at,
         note=tx.note,
+        is_voided=bool(tx.is_voided),
         created_at=tx.created_at,
         categories=[
             {"id": c.id, "name": c.name, "description": c.description, "created_at": c.created_at}
@@ -48,6 +49,7 @@ def list_transactions(
     end: date | None = None,
     q: str | None = None,
     type: str | None = None,
+    voided: bool = False,
     skip: int = 0,
     limit: int = 50,
 ):
@@ -55,6 +57,7 @@ def list_transactions(
         db.query(Transaction)
         .options(joinedload(Transaction.categories), joinedload(Transaction.tags))
         .filter(Transaction.user_id == current_user.id)
+        .filter(Transaction.is_voided == voided)
         .order_by(Transaction.occurred_at.desc())
     )
     start = _coerce_date(start)
@@ -153,6 +156,8 @@ def update_transaction(
         tx.occurred_at = payload.occurred_at
     if payload.note is not None:
         tx.note = payload.note
+    if payload.is_voided is not None:
+        tx.is_voided = payload.is_voided
 
     if payload.category_ids is not None:
         categories = []
