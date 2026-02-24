@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import date, datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
 
@@ -9,6 +11,15 @@ from app.models import Category, Tag, Transaction, User
 from app.schemas.transactions import TransactionCreate, TransactionList, TransactionOut, TransactionUpdate
 
 router = APIRouter(prefix="/transactions")
+
+
+def _coerce_date(value) -> date | None:
+    if value is None:
+        return None
+    if isinstance(value, date):
+        return value
+    # In case the runtime passes a string (older pydantic/fastapi behavior)
+    return date.fromisoformat(str(value))
 
 
 def _tx_to_out(tx: Transaction) -> TransactionOut:
@@ -33,8 +44,8 @@ def _tx_to_out(tx: Transaction) -> TransactionOut:
 def list_transactions(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-    start: str | None = None,
-    end: str | None = None,
+    start: date | None = None,
+    end: date | None = None,
     q: str | None = None,
     type: str | None = None,
     skip: int = 0,
@@ -46,10 +57,14 @@ def list_transactions(
         .filter(Transaction.user_id == current_user.id)
         .order_by(Transaction.occurred_at.desc())
     )
+    start = _coerce_date(start)
+    end = _coerce_date(end)
     if start:
-        query = query.filter(Transaction.occurred_at >= start)
+        start_dt = datetime.combine(start, datetime.min.time()).replace(tzinfo=timezone.utc)
+        query = query.filter(Transaction.occurred_at >= start_dt)
     if end:
-        query = query.filter(Transaction.occurred_at <= end)
+        end_dt = datetime.combine(end, datetime.max.time()).replace(tzinfo=timezone.utc)
+        query = query.filter(Transaction.occurred_at <= end_dt)
     if type in ("income", "expense"):
         query = query.filter(Transaction.type == type)
     if q:
@@ -174,4 +189,3 @@ def delete_transaction(
     db.delete(tx)
     db.commit()
     return {"ok": True}
-

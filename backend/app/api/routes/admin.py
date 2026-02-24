@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import date, datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
 
@@ -11,6 +13,14 @@ from app.schemas.users import ResetPasswordIn, UserCreate, UserOut, UserUpdate
 from app.security import hash_password
 
 router = APIRouter(dependencies=[Depends(require_admin)])
+
+
+def _coerce_date(value) -> date | None:
+    if value is None:
+        return None
+    if isinstance(value, date):
+        return value
+    return date.fromisoformat(str(value))
 
 
 def _tx_to_out(tx: Transaction) -> TransactionOut:
@@ -145,8 +155,8 @@ def delete_user(user_id: int, db: Session = Depends(get_db)):
 @router.get("/transactions", response_model=TransactionList)
 def list_transactions(
     db: Session = Depends(get_db),
-    start: str | None = None,
-    end: str | None = None,
+    start: date | None = None,
+    end: date | None = None,
     user_id: int | None = None,
     q: str | None = None,
     type: str | None = None,
@@ -160,10 +170,14 @@ def list_transactions(
     )
     if user_id is not None:
         query = query.filter(Transaction.user_id == user_id)
+    start = _coerce_date(start)
+    end = _coerce_date(end)
     if start:
-        query = query.filter(Transaction.occurred_at >= start)
+        start_dt = datetime.combine(start, datetime.min.time()).replace(tzinfo=timezone.utc)
+        query = query.filter(Transaction.occurred_at >= start_dt)
     if end:
-        query = query.filter(Transaction.occurred_at <= end)
+        end_dt = datetime.combine(end, datetime.max.time()).replace(tzinfo=timezone.utc)
+        query = query.filter(Transaction.occurred_at <= end_dt)
     if type in ("income", "expense"):
         query = query.filter(Transaction.type == type)
     if q:

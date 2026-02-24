@@ -34,7 +34,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setTokenHeader(token);
     if (token) {
       refreshMe()
-        .catch(() => logout())
+        .catch((err) => {
+          if (err?.response?.status === 401) logout();
+        })
         .finally(() => setReady(true));
     } else {
       setReady(true);
