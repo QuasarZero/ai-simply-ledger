@@ -27,6 +27,22 @@
   "currency": "Currency",
   "occurredAt": "Date",
   "type": "Type",
-  "search": "Search"
+  "search": "Search",
+  "trend": "Trend",
+  "incomeVsExpense": "Income vs Expense",
+  "categoryShareAmount": "Category share (Amount)",
+  "categoryShareCount": "Category share (Count)",
+  "tagShareAmount": "Tag share (Amount)",
+  "tagShareCount": "Tag share (Count)",
+  "top10": "Top 10",
+  "top10ExpenseTx": "Top 10 expense transactions",
+  "topCategoriesExpenseAmount": "Top categories (Expense amount)",
+  "topTagsExpenseAmount": "Top tags (Expense amount)",
+  "topCategoriesCount": "Top categories (Count)",
+  "topTagsCount": "Top tags (Count)",
+  "used": "Used",
+  "other": "Other",
+  "uncategorized": "Uncategorized",
+  "noTag": "No Tag",
+  "createTagHint": "Type to create"
 }
-

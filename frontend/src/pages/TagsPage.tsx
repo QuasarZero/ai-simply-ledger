@@ -19,18 +19,18 @@ import { useTranslation } from "react-i18next";
 
 import { api } from "../api/client";
 
-type Tag = { id: number; name: string };
+type TagWithUsage = { id: number; name: string; used_count?: number };
 
 export function TagsPage() {
   const { t } = useTranslation();
-  const [items, setItems] = useState<Tag[]>([]);
+  const [items, setItems] = useState<TagWithUsage[]>([]);
   const [open, setOpen] = useState(false);
-  const [editing, setEditing] = useState<Tag | null>(null);
+  const [editing, setEditing] = useState<TagWithUsage | null>(null);
   const [name, setName] = useState("");
 
   async function load() {
     const res = await api.get("/tags");
-    setItems(res.data as Tag[]);
+    setItems(res.data as TagWithUsage[]);
   }
 
   useEffect(() => {
@@ -43,7 +43,7 @@ export function TagsPage() {
     setOpen(true);
   }
 
-  function openEdit(x: Tag) {
+  function openEdit(x: TagWithUsage) {
     setEditing(x);
     setName(x.name);
     setOpen(true);
@@ -83,6 +83,7 @@ export function TagsPage() {
             <TableRow>
               <TableCell>ID</TableCell>
               <TableCell>{t("tags")}</TableCell>
+              <TableCell>{t("used")}</TableCell>
               <TableCell />
             </TableRow>
           </TableHead>
@@ -91,6 +92,7 @@ export function TagsPage() {
               <TableRow key={x.id}>
                 <TableCell>{x.id}</TableCell>
                 <TableCell>{x.name}</TableCell>
+                <TableCell>{x.used_count ?? 0}</TableCell>
                 <TableCell align="right">
                   <Button size="small" onClick={() => openEdit(x)}>
                     Edit
@@ -122,4 +124,3 @@ export function TagsPage() {
     </Stack>
   );
 }
-

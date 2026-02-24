@@ -27,6 +27,22 @@
   "currency": "货币",
   "occurredAt": "日期",
   "type": "类型",
-  "search": "搜索"
+  "search": "搜索",
+  "trend": "趋势",
+  "incomeVsExpense": "收入 vs 支出",
+  "categoryShareAmount": "分类占比（金额）",
+  "categoryShareCount": "分类占比（次数）",
+  "tagShareAmount": "标签占比（金额）",
+  "tagShareCount": "标签占比（次数）",
+  "top10": "Top 10",
+  "top10ExpenseTx": "最高花费记录 Top 10",
+  "topCategoriesExpenseAmount": "分类最高花费 Top 10",
+  "topTagsExpenseAmount": "标签最高花费 Top 10",
+  "topCategoriesCount": "分类出现次数 Top 10",
+  "topTagsCount": "标签出现次数 Top 10",
+  "used": "被使用次数",
+  "other": "其他",
+  "uncategorized": "未分类",
+  "noTag": "无标签",
+  "createTagHint": "输入即可创建"
 }
-

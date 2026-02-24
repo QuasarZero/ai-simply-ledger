@@ -17,4 +17,4 @@ class TagOut(BaseModel):
     id: int
     name: str
     created_at: datetime
-
+    used_count: int = 0

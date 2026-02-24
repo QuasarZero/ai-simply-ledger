@@ -1,34 +1,51 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { Box, Paper, Stack, Typography } from "@mui/material";
+import React, { Suspense, useEffect, useMemo, useState } from "react";
+import { Box, Paper, Stack, Tab, Tabs, Typography } from "@mui/material";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import dayjs, { Dayjs } from "dayjs";
 import { useTranslation } from "react-i18next";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Legend,
-  Line,
-  LineChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis
-} from "recharts";
 
 import { api } from "../api/client";
 
-type Summary = {
+export type DashboardData = {
   totals: { income: number; expense: number; net: number; currency: string };
   by_day: { date: string; income: number; expense: number }[];
-  by_category: { category_id: number; name: string; income: number; expense: number }[];
+  income_expense_pie: { id: number; name: string; value: number }[];
+  category_pie_amount: { id: number; name: string; value: number }[];
+  category_pie_count: { id: number; name: string; value: number }[];
+  tag_pie_amount: { id: number; name: string; value: number }[];
+  tag_pie_count: { id: number; name: string; value: number }[];
+  top_expense_transactions: {
+    id: number;
+    occurred_at: string;
+    amount_base: number;
+    currency: string;
+    amount_raw: number;
+    note?: string | null;
+    categories: string[];
+    tags: string[];
+  }[];
+  top_expense_categories_amount: { id: number; name: string; value: number }[];
+  top_expense_tags_amount: { id: number; name: string; value: number }[];
+  top_categories_count: { id: number; name: string; value: number }[];
+  top_tags_count: { id: number; name: string; value: number }[];
 };
+
+const OverviewTab = React.lazy(() => import("./dashboard/OverviewTab"));
+const CategoriesTab = React.lazy(() => import("./dashboard/CategoriesTab"));
+const TagsTab = React.lazy(() => import("./dashboard/TagsTab"));
+const TopTab = React.lazy(() => import("./dashboard/TopTab"));
+
+function TabPanel({ value, index, children }: { value: number; index: number; children: React.ReactNode }) {
+  if (value !== index) return null;
+  return <Box sx={{ mt: 2 }}>{children}</Box>;
+}
 
 export function DashboardPage() {
   const { t } = useTranslation();
   const [start, setStart] = useState<Dayjs>(dayjs().add(-30, "day"));
   const [end, setEnd] = useState<Dayjs>(dayjs());
-  const [data, setData] = useState<Summary | null>(null);
+  const [data, setData] = useState<DashboardData | null>(null);
+  const [tab, setTab] = useState(0);
 
   const params = useMemo(
     () => ({
@@ -41,8 +58,8 @@ export function DashboardPage() {
 
   useEffect(() => {
     api
-      .get("/stats/summary", { params })
-      .then((r) => setData(r.data as Summary))
+      .get("/stats/dashboard", { params })
+      .then((r) => setData(r.data as DashboardData))
       .catch(() => setData(null));
   }, [params]);
 
@@ -65,40 +82,29 @@ export function DashboardPage() {
         </Stack>
       </Paper>
 
-      <Paper sx={{ p: 2, height: 320 }}>
-        <Typography variant="subtitle1" sx={{ mb: 1 }}>
-          {t("dashboard")}
-        </Typography>
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data?.by_day ?? []}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="date" />
-            <YAxis />
-            <Tooltip />
-            <Legend />
-            <Line type="monotone" dataKey="income" stroke="#2e7d32" name={t("income")} />
-            <Line type="monotone" dataKey="expense" stroke="#d32f2f" name={t("expense")} />
-          </LineChart>
-        </ResponsiveContainer>
+      <Paper sx={{ p: 1 }}>
+        <Tabs value={tab} onChange={(_, v) => setTab(v)} variant="scrollable" scrollButtons="auto">
+          <Tab label={t("dashboard")} />
+          <Tab label={t("categories")} />
+          <Tab label={t("tags")} />
+          <Tab label={t("top10")} />
+        </Tabs>
       </Paper>
 
-      <Paper sx={{ p: 2, height: 320 }}>
-        <Typography variant="subtitle1" sx={{ mb: 1 }}>
-          {t("categories")}
-        </Typography>
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data?.by_category ?? []}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="name" />
-            <YAxis />
-            <Tooltip />
-            <Legend />
-            <Bar dataKey="income" fill="#2e7d32" name={t("income")} />
-            <Bar dataKey="expense" fill="#d32f2f" name={t("expense")} />
-          </BarChart>
-        </ResponsiveContainer>
-      </Paper>
+      <Suspense fallback={<Paper sx={{ p: 2 }}>Loading…</Paper>}>
+        <TabPanel value={tab} index={0}>
+          <OverviewTab data={data} />
+        </TabPanel>
+        <TabPanel value={tab} index={1}>
+          <CategoriesTab data={data} />
+        </TabPanel>
+        <TabPanel value={tab} index={2}>
+          <TagsTab data={data} />
+        </TabPanel>
+        <TabPanel value={tab} index={3}>
+          <TopTab data={data} />
+        </TabPanel>
+      </Suspense>
     </Stack>
   );
 }
-

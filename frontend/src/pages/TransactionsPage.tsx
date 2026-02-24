@@ -19,6 +19,7 @@ import {
   TextField,
   Typography
 } from "@mui/material";
+import { createFilterOptions } from "@mui/material/Autocomplete";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import dayjs, { Dayjs } from "dayjs";
 import { useTranslation } from "react-i18next";
@@ -26,7 +27,7 @@ import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 
 type Category = { id: number; name: string; description?: string | null };
-type Tag = { id: number; name: string };
+type Tag = { id: number; name: string; used_count?: number };
 
 type Tx = {
   id: number;
@@ -40,6 +41,15 @@ type Tx = {
 };
 
 const currencies = ["CNY", "USD", "EUR", "JPY", "HKD", "GBP"];
+const tagFilter = createFilterOptions<TagOption>();
+
+type TagOption =
+  | Tag
+  | {
+      inputValue: string;
+      name: string;
+    }
+  | string;
 
 export function TransactionsPage() {
   const { t } = useTranslation();
@@ -140,6 +150,27 @@ export function TransactionsPage() {
   async function del(txId: number) {
     await api.delete(`/transactions/${txId}`);
     await load();
+  }
+
+  async function ensureTagByName(name: string): Promise<Tag> {
+    const trimmed = name.trim();
+    const existing = tags.find((t) => t.name.toLowerCase() === trimmed.toLowerCase());
+    if (existing) return existing;
+
+    try {
+      const res = await api.post("/tags", { name: trimmed });
+      const created = res.data as Tag;
+      setTags((prev) => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)));
+      return created;
+    } catch (err: any) {
+      if (err?.response?.status === 400) {
+        const refreshed = (await api.get("/tags")).data as Tag[];
+        setTags(refreshed);
+        const found = refreshed.find((t) => t.name.toLowerCase() === trimmed.toLowerCase());
+        if (found) return found;
+      }
+      throw err;
+    }
   }
 
   return (
@@ -255,11 +286,44 @@ export function TransactionsPage() {
             />
             <Autocomplete
               multiple
-              options={tags}
-              getOptionLabel={(o) => o.name}
+              freeSolo
+              selectOnFocus
+              clearOnBlur
+              handleHomeEndKeys
+              options={tags as TagOption[]}
+              filterOptions={(options, params) => {
+                const filtered = tagFilter(options as any, params);
+                const inputValue = params.inputValue.trim();
+                const exists = tags.some((t) => t.name.toLowerCase() === inputValue.toLowerCase());
+                if (inputValue !== "" && !exists) {
+                  filtered.push({
+                    inputValue,
+                    name: `+ ${t("create")}: "${inputValue}"`
+                  } as any);
+                }
+                return filtered as any;
+              }}
+              getOptionLabel={(o) => {
+                if (typeof o === "string") return o;
+                if ((o as any).inputValue) return (o as any).name;
+                return (o as Tag).name;
+              }}
               value={selectedTags}
-              onChange={(_, v) => setSelectedTags(v)}
-              renderInput={(params) => <TextField {...params} label={t("tags")} />}
+              onChange={async (_, v) => {
+                const next: Tag[] = [];
+                for (const item of v as TagOption[]) {
+                  if (typeof item === "string") {
+                    next.push(await ensureTagByName(item));
+                  } else if ((item as any).inputValue) {
+                    next.push(await ensureTagByName((item as any).inputValue));
+                  } else {
+                    next.push(item as Tag);
+                  }
+                }
+                const dedup = Array.from(new Map(next.map((x) => [x.id, x])).values());
+                setSelectedTags(dedup);
+              }}
+              renderInput={(params) => <TextField {...params} label={t("tags")} helperText={t("createTagHint")} />}
             />
             <TextField label={t("note")} value={note} onChange={(e) => setNote(e.target.value)} multiline minRows={2} />
           </Stack>
