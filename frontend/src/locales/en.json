@@ -44,5 +44,18 @@
   "other": "Other",
   "uncategorized": "Uncategorized",
   "noTag": "No Tag",
-  "createTagHint": "Type to create"
+  "createTagHint": "Type to create",
+  "presetRange": "Range",
+  "presetToday": "Today",
+  "presetYesterday": "Yesterday",
+  "presetLast3Days": "Last 3 days",
+  "presetLast7Days": "Last 7 days",
+  "presetThisWeek": "This week",
+  "presetThisMonth": "This month",
+  "presetLastMonth": "Last month",
+  "presetLast3Months": "Last 3 months",
+  "presetLast6Months": "Last 6 months",
+  "presetLast1Year": "Last 1 year",
+  "presetLastYear": "Last year",
+  "presetCustom": "Custom"
 }

@@ -21,10 +21,12 @@ import {
 } from "@mui/material";
 import { createFilterOptions } from "@mui/material/Autocomplete";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
-import dayjs, { Dayjs } from "dayjs";
+import type { Dayjs } from "dayjs";
 import { useTranslation } from "react-i18next";
 
 import { api } from "../api/client";
+import dayjs from "../dayjs";
+import { DateRangePresets, type PresetKey } from "../components/DateRangePresets";
 
 type Category = { id: number; name: string; description?: string | null };
 type Tag = { id: number; name: string; used_count?: number };
@@ -60,6 +62,7 @@ export function TransactionsPage() {
   const [start, setStart] = useState<Dayjs>(dayjs().add(-30, "day"));
   const [end, setEnd] = useState<Dayjs>(dayjs());
   const [q, setQ] = useState("");
+  const [preset, setPreset] = useState<PresetKey>("custom");
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Tx | null>(null);
@@ -177,8 +180,30 @@ export function TransactionsPage() {
     <Stack spacing={2}>
       <Paper sx={{ p: 2 }}>
         <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
-          <DatePicker label={t("startDate")} value={start} onChange={(v) => v && setStart(v)} />
-          <DatePicker label={t("endDate")} value={end} onChange={(v) => v && setEnd(v)} />
+          <DateRangePresets
+            value={preset}
+            onChange={setPreset}
+            setStart={(d) => setStart(d)}
+            setEnd={(d) => setEnd(d)}
+          />
+          <DatePicker
+            label={t("startDate")}
+            value={start}
+            onChange={(v) => {
+              if (!v) return;
+              setPreset("custom");
+              setStart(v);
+            }}
+          />
+          <DatePicker
+            label={t("endDate")}
+            value={end}
+            onChange={(v) => {
+              if (!v) return;
+              setPreset("custom");
+              setEnd(v);
+            }}
+          />
           <TextField
             label={t("search")}
             value={q}

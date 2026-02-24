@@ -1,10 +1,12 @@
 import React, { Suspense, useEffect, useMemo, useState } from "react";
 import { Box, Paper, Stack, Tab, Tabs, Typography } from "@mui/material";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
-import dayjs, { Dayjs } from "dayjs";
+import type { Dayjs } from "dayjs";
 import { useTranslation } from "react-i18next";
 
 import { api } from "../api/client";
+import dayjs from "../dayjs";
+import { DateRangePresets, type PresetKey } from "../components/DateRangePresets";
 
 export type DashboardData = {
   totals: { income: number; expense: number; net: number; currency: string };
@@ -46,6 +48,7 @@ export function DashboardPage() {
   const [end, setEnd] = useState<Dayjs>(dayjs());
   const [data, setData] = useState<DashboardData | null>(null);
   const [tab, setTab] = useState(0);
+  const [preset, setPreset] = useState<PresetKey>("custom");
 
   const params = useMemo(
     () => ({
@@ -67,8 +70,30 @@ export function DashboardPage() {
     <Stack spacing={2}>
       <Paper sx={{ p: 2 }}>
         <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
-          <DatePicker label={t("startDate")} value={start} onChange={(v) => v && setStart(v)} />
-          <DatePicker label={t("endDate")} value={end} onChange={(v) => v && setEnd(v)} />
+          <DateRangePresets
+            value={preset}
+            onChange={setPreset}
+            setStart={(d) => setStart(d)}
+            setEnd={(d) => setEnd(d)}
+          />
+          <DatePicker
+            label={t("startDate")}
+            value={start}
+            onChange={(v) => {
+              if (!v) return;
+              setPreset("custom");
+              setStart(v);
+            }}
+          />
+          <DatePicker
+            label={t("endDate")}
+            value={end}
+            onChange={(v) => {
+              if (!v) return;
+              setPreset("custom");
+              setEnd(v);
+            }}
+          />
           <Box sx={{ flexGrow: 1 }} />
           <Typography>
             {t("income")}: {data?.totals.income?.toFixed(2) ?? "-"} {data?.totals.currency ?? "CNY"}
