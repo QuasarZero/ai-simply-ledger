@@ -1,0 +1,47 @@
+from __future__ import annotations
+
+from datetime import datetime
+
+from pydantic import BaseModel, Field
+
+from app.schemas.categories import CategoryOut
+from app.schemas.tags import TagOut
+
+
+class TransactionCreate(BaseModel):
+    type: str = Field(pattern="^(income|expense)$")
+    amount: float = Field(gt=0)
+    currency: str = Field(default="CNY", min_length=3, max_length=8)
+    occurred_at: datetime
+    note: str | None = None
+    category_ids: list[int] = []
+    tag_ids: list[int] = []
+
+
+class TransactionUpdate(BaseModel):
+    type: str | None = Field(default=None, pattern="^(income|expense)$")
+    amount: float | None = Field(default=None, gt=0)
+    currency: str | None = Field(default=None, min_length=3, max_length=8)
+    occurred_at: datetime | None = None
+    note: str | None = None
+    category_ids: list[int] | None = None
+    tag_ids: list[int] | None = None
+
+
+class TransactionOut(BaseModel):
+    id: int
+    user_id: int
+    type: str
+    amount: float
+    currency: str
+    occurred_at: datetime
+    note: str | None
+    created_at: datetime
+    categories: list[CategoryOut]
+    tags: list[TagOut]
+
+
+class TransactionList(BaseModel):
+    items: list[TransactionOut]
+    total: int
+

@@ -1,0 +1,177 @@
+from __future__ import annotations
+
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session, joinedload
+
+from app.db import get_db
+from app.deps import get_current_user
+from app.models import Category, Tag, Transaction, User
+from app.schemas.transactions import TransactionCreate, TransactionList, TransactionOut, TransactionUpdate
+
+router = APIRouter(prefix="/transactions")
+
+
+def _tx_to_out(tx: Transaction) -> TransactionOut:
+    return TransactionOut(
+        id=tx.id,
+        user_id=tx.user_id,
+        type=tx.type,
+        amount=float(tx.amount),
+        currency=tx.currency,
+        occurred_at=tx.occurred_at,
+        note=tx.note,
+        created_at=tx.created_at,
+        categories=[
+            {"id": c.id, "name": c.name, "description": c.description, "created_at": c.created_at}
+            for c in tx.categories
+        ],
+        tags=[{"id": t.id, "name": t.name, "created_at": t.created_at} for t in tx.tags],
+    )
+
+
+@router.get("", response_model=TransactionList)
+def list_transactions(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    start: str | None = None,
+    end: str | None = None,
+    q: str | None = None,
+    type: str | None = None,
+    skip: int = 0,
+    limit: int = 50,
+):
+    query = (
+        db.query(Transaction)
+        .options(joinedload(Transaction.categories), joinedload(Transaction.tags))
+        .filter(Transaction.user_id == current_user.id)
+        .order_by(Transaction.occurred_at.desc())
+    )
+    if start:
+        query = query.filter(Transaction.occurred_at >= start)
+    if end:
+        query = query.filter(Transaction.occurred_at <= end)
+    if type in ("income", "expense"):
+        query = query.filter(Transaction.type == type)
+    if q:
+        query = query.filter(Transaction.note.ilike(f"%{q}%"))
+
+    total = query.count()
+    items = query.offset(skip).limit(min(limit, 200)).all()
+    return TransactionList(items=[_tx_to_out(t) for t in items], total=total)
+
+
+@router.post("", response_model=TransactionOut)
+def create_transaction(
+    payload: TransactionCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    categories = []
+    if payload.category_ids:
+        categories = db.query(Category).filter(Category.id.in_(payload.category_ids)).all()
+    tags = []
+    if payload.tag_ids:
+        tags = db.query(Tag).filter(Tag.id.in_(payload.tag_ids)).all()
+
+    tx = Transaction(
+        user_id=current_user.id,
+        type=payload.type,
+        amount=payload.amount,
+        currency=payload.currency.upper(),
+        occurred_at=payload.occurred_at,
+        note=payload.note,
+    )
+    tx.categories = categories
+    tx.tags = tags
+    db.add(tx)
+    db.commit()
+    db.refresh(tx)
+    tx = (
+        db.query(Transaction)
+        .options(joinedload(Transaction.categories), joinedload(Transaction.tags))
+        .filter(Transaction.id == tx.id)
+        .first()
+    )
+    return _tx_to_out(tx)
+
+
+@router.get("/{tx_id}", response_model=TransactionOut)
+def get_transaction(
+    tx_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    tx = (
+        db.query(Transaction)
+        .options(joinedload(Transaction.categories), joinedload(Transaction.tags))
+        .filter(Transaction.id == tx_id, Transaction.user_id == current_user.id)
+        .first()
+    )
+    if not tx:
+        raise HTTPException(status_code=404, detail="Not found")
+    return _tx_to_out(tx)
+
+
+@router.patch("/{tx_id}", response_model=TransactionOut)
+def update_transaction(
+    tx_id: int,
+    payload: TransactionUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    tx = (
+        db.query(Transaction)
+        .options(joinedload(Transaction.categories), joinedload(Transaction.tags))
+        .filter(Transaction.id == tx_id, Transaction.user_id == current_user.id)
+        .first()
+    )
+    if not tx:
+        raise HTTPException(status_code=404, detail="Not found")
+
+    if payload.type:
+        tx.type = payload.type
+    if payload.amount is not None:
+        tx.amount = payload.amount
+    if payload.currency:
+        tx.currency = payload.currency.upper()
+    if payload.occurred_at:
+        tx.occurred_at = payload.occurred_at
+    if payload.note is not None:
+        tx.note = payload.note
+
+    if payload.category_ids is not None:
+        categories = []
+        if payload.category_ids:
+            categories = db.query(Category).filter(Category.id.in_(payload.category_ids)).all()
+        tx.categories = categories
+
+    if payload.tag_ids is not None:
+        tags = []
+        if payload.tag_ids:
+            tags = db.query(Tag).filter(Tag.id.in_(payload.tag_ids)).all()
+        tx.tags = tags
+
+    db.commit()
+    db.refresh(tx)
+    tx = (
+        db.query(Transaction)
+        .options(joinedload(Transaction.categories), joinedload(Transaction.tags))
+        .filter(Transaction.id == tx.id)
+        .first()
+    )
+    return _tx_to_out(tx)
+
+
+@router.delete("/{tx_id}")
+def delete_transaction(
+    tx_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    tx = db.query(Transaction).filter(Transaction.id == tx_id, Transaction.user_id == current_user.id).first()
+    if not tx:
+        raise HTTPException(status_code=404, detail="Not found")
+    db.delete(tx)
+    db.commit()
+    return {"ok": True}
+
