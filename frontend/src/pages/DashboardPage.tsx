@@ -7,6 +7,7 @@ import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import dayjs from "../dayjs";
 import { DateRangePresets, type PresetKey } from "../components/DateRangePresets";
+import { usePersistedDateRange } from "../hooks/usePersistedDateRange";
 
 export type DashboardData = {
   totals: { income: number; expense: number; net: number; currency: string };
@@ -44,11 +45,12 @@ function TabPanel({ value, index, children }: { value: number; index: number; ch
 
 export function DashboardPage() {
   const { t } = useTranslation();
-  const [start, setStart] = useState<Dayjs>(dayjs().add(-30, "day"));
-  const [end, setEnd] = useState<Dayjs>(dayjs());
   const [data, setData] = useState<DashboardData | null>(null);
   const [tab, setTab] = useState(0);
-  const [preset, setPreset] = useState<PresetKey>("custom");
+  const { preset, setPreset, start, setStart, end, setEnd } = usePersistedDateRange(
+    "dateRange:dashboard",
+    30
+  );
 
   const params = useMemo(
     () => ({

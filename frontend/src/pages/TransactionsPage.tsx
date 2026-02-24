@@ -27,6 +27,7 @@ import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import dayjs from "../dayjs";
 import { DateRangePresets, type PresetKey } from "../components/DateRangePresets";
+import { usePersistedDateRange } from "../hooks/usePersistedDateRange";
 
 type Category = { id: number; name: string; description?: string | null };
 type Tag = { id: number; name: string; used_count?: number };
@@ -59,10 +60,11 @@ export function TransactionsPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
 
-  const [start, setStart] = useState<Dayjs>(dayjs().add(-30, "day"));
-  const [end, setEnd] = useState<Dayjs>(dayjs());
   const [q, setQ] = useState("");
-  const [preset, setPreset] = useState<PresetKey>("custom");
+  const { preset, setPreset, start, setStart, end, setEnd } = usePersistedDateRange(
+    "dateRange:transactions",
+    30
+  );
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Tx | null>(null);

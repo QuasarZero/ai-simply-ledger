@@ -19,6 +19,7 @@ import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import dayjs from "../dayjs";
 import { DateRangePresets, type PresetKey } from "../components/DateRangePresets";
+import { usePersistedDateRange } from "../hooks/usePersistedDateRange";
 
 type Tx = {
   id: number;
@@ -33,10 +34,11 @@ type Tx = {
 export function AdminTransactionsPage() {
   const { t } = useTranslation();
   const [items, setItems] = useState<Tx[]>([]);
-  const [start, setStart] = useState<Dayjs>(dayjs().add(-30, "day"));
-  const [end, setEnd] = useState<Dayjs>(dayjs());
   const [userId, setUserId] = useState<string>("");
-  const [preset, setPreset] = useState<PresetKey>("custom");
+  const { preset, setPreset, start, setStart, end, setEnd } = usePersistedDateRange(
+    "dateRange:adminTransactions",
+    30
+  );
 
   const params = useMemo(
     () => ({
