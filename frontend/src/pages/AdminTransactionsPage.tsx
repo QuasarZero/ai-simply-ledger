@@ -52,7 +52,6 @@ export function AdminTransactionsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [items, setItems] = useState<Tx[]>([]);
   const [users, setUsers] = useState<User[]>([]);
-  const [userId, setUserId] = useState<string>(() => searchParams.get("userId") || "");
   const { preset, setPreset, start, setStart, end, setEnd } = usePersistedDateRange(
     "dateRange:adminTransactions",
     30
@@ -60,6 +59,10 @@ export function AdminTransactionsPage() {
   const [voided, setVoided] = useState(false);
   const [minAmount, setMinAmount] = useState<string>("");
   const [maxAmount, setMaxAmount] = useState<string>("");
+  const [linkUserId, setLinkUserId] = useState<number | null>(() => {
+    const v = searchParams.get("userId");
+    return v && !Number.isNaN(Number(v)) ? Number(v) : null;
+  });
   const [linkCategoryId, setLinkCategoryId] = useState<number | null>(() => {
     const v = searchParams.get("categoryId");
     return v && !Number.isNaN(Number(v)) ? Number(v) : null;
@@ -105,7 +108,7 @@ export function AdminTransactionsPage() {
     const p: Record<string, any> = {
       start: start.format("YYYY-MM-DD"),
       end: end.format("YYYY-MM-DD"),
-      user_id: userId ? Number(userId) : undefined,
+      user_id: linkUserId ?? undefined,
       voided: voided ? true : undefined
     };
     const min = minAmount.trim();
@@ -221,10 +224,23 @@ export function AdminTransactionsPage() {
               control={<Checkbox checked={voided} onChange={(e) => setVoided(e.target.checked)} />}
               label={t("voided")}
             />
-          {linkCategoryId ? (
-            <Chip
-              color="primary"
-              variant="outlined"
+            {linkUserId ? (
+              <Chip
+                color="info"
+                variant="outlined"
+                label={`${t("user")}: ${userLabelById.get(linkUserId) ?? `#${linkUserId}`}`}
+                onDelete={() => {
+                  setLinkUserId(null);
+                  const next = new URLSearchParams(searchParams);
+                  next.delete("userId");
+                  setSearchParams(next);
+                }}
+              />
+            ) : null}
+            {linkCategoryId ? (
+              <Chip
+                color="primary"
+                variant="outlined"
               label={`${t("linkedCategory")}: ${
                 categories.find((c) => c.id === linkCategoryId)?.name ?? `#${linkCategoryId}`
               }`}
@@ -260,13 +276,6 @@ export function AdminTransactionsPage() {
             label={t("maxAmount")}
             value={maxAmount}
             onChange={(e) => setMaxAmount(e.target.value)}
-            size="small"
-            sx={{ width: 140 }}
-          />
-          <TextField
-            label={t("userId")}
-            value={userId}
-            onChange={(e) => setUserId(e.target.value)}
             size="small"
             sx={{ width: 140 }}
           />
