@@ -6,6 +6,15 @@ export function buildTheme(mode: "light" | "dark") {
       mode,
       primary: { main: "#6f42c1" } // purple
     },
-    shape: { borderRadius: 10 }
+    shape: { borderRadius: 10 },
+    components: {
+      MuiButton: {
+        styleOverrides: {
+          root: {
+            textTransform: "none"
+          }
+        }
+      }
+    }
   });
 }
