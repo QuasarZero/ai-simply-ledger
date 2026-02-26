@@ -57,8 +57,7 @@ export function AppLayout({
     const base = [
       { to: "/", label: t("dashboard") },
       { to: "/transactions", label: t("transactions") },
-      { to: "/tags", label: t("tags") },
-      { to: "/profile", label: t("profile") }
+      { to: "/tags", label: t("tags") }
     ];
     if (me?.is_admin) {
       base.push({ to: "/admin/transactions", label: t("adminTransactions") });
@@ -68,13 +67,15 @@ export function AppLayout({
     return base;
   }, [me?.is_admin, t]);
 
+  const bottomItems = useMemo(() => [{ to: "/profile", label: t("profile") }], [t]);
+
   const pageTitle = useMemo(() => {
     // Use longest match so "/admin/transactions" wins over "/" etc.
-    const match = [...items]
+    const match = [...items, ...bottomItems]
       .sort((a, b) => b.to.length - a.to.length)
       .find((it) => (it.to === "/" ? location.pathname === "/" : location.pathname.startsWith(it.to)));
     return match?.label || "";
-  }, [items, location.pathname]);
+  }, [bottomItems, items, location.pathname]);
 
   React.useEffect(() => {
     const app = t("appTitle");
@@ -93,13 +94,25 @@ export function AppLayout({
   }
 
   const drawer = (
-    <Box sx={{ width: drawerWidth }}>
+    <Box sx={{ width: drawerWidth, height: "100vh", display: "flex", flexDirection: "column" }}>
       <Toolbar>
         <Typography variant="h6">{t("appTitle")}</Typography>
       </Toolbar>
       <Divider />
-      <List>
+      <List sx={{ flexGrow: 1 }}>
         {items.map((it) => (
+          <ListItemButton
+            key={it.to}
+            selected={location.pathname === it.to}
+            onClick={() => go(it.to)}
+          >
+            <ListItemText primary={it.label} />
+          </ListItemButton>
+        ))}
+      </List>
+      <Divider />
+      <List>
+        {bottomItems.map((it) => (
           <ListItemButton
             key={it.to}
             selected={location.pathname === it.to}
