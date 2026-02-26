@@ -1,4 +1,4 @@
-# 记账系统（React + FastAPI + PostgreSQL + Docker）
+# 简易记账系统（React + FastAPI + PostgreSQL + Docker）
 
 ## 功能概览
 
