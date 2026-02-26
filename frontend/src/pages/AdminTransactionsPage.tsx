@@ -40,6 +40,8 @@ type Tx = {
   occurred_at: string;
   note?: string | null;
   is_voided: boolean;
+  categories: Category[];
+  tags: Tag[];
 };
 
 type Category = { id: number; name: string };
@@ -331,6 +333,8 @@ export function AdminTransactionsPage() {
               <TableCell>{t("type")}</TableCell>
               <TableCell>{t("amount")}</TableCell>
               <TableCell>{t("currency")}</TableCell>
+              <TableCell>{t("categories")}</TableCell>
+              <TableCell>{t("tags")}</TableCell>
               <TableCell>{t("note")}</TableCell>
               <TableCell />
             </TableRow>
@@ -360,7 +364,17 @@ export function AdminTransactionsPage() {
                 <TableCell>{it.type === "income" ? t("income") : t("expense")}</TableCell>
                 <TableCell>{it.amount.toFixed(2)}</TableCell>
                 <TableCell>{it.currency}</TableCell>
-                <TableCell sx={{ maxWidth: 260, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                <TableCell>
+                  {(it.categories || []).map((c) => (
+                    <Chip key={c.id} label={c.name} size="small" sx={{ mr: 0.5, mb: 0.5 }} />
+                  ))}
+                </TableCell>
+                <TableCell>
+                  {(it.tags || []).map((x) => (
+                    <Chip key={x.id} label={x.name} size="small" sx={{ mr: 0.5, mb: 0.5 }} />
+                  ))}
+                </TableCell>
+                <TableCell sx={{ maxWidth: 220, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                   {it.note || ""}
                 </TableCell>
                 <TableCell align="right">
