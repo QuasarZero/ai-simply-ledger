@@ -120,6 +120,14 @@ def _split_add(mapping: dict[int, float], ids: list[int], value: float, empty_id
         mapping[_id] = mapping.get(_id, 0.0) + share
 
 
+def _count_add(mapping: dict[int, float], ids: list[int], empty_id: int = 0) -> None:
+    if not ids:
+        mapping[empty_id] = mapping.get(empty_id, 0.0) + 1.0
+        return
+    for _id in ids:
+        mapping[_id] = mapping.get(_id, 0.0) + 1.0
+
+
 def _top_items(values: dict[int, float], names: dict[int, str], limit: int = 10) -> list[TopItem]:
     pairs = sorted(values.items(), key=lambda x: x[1], reverse=True)[:limit]
     return [TopItem(id=k, name=names.get(k, f"#{k}"), value=float(v)) for k, v in pairs]
@@ -203,13 +211,13 @@ def dashboard(
             for c in tx.categories:
                 cat_names[c.id] = c.name
             _split_add(cat_amount, cat_ids, amt_base, empty_id=0)
-            _split_add(cat_count, cat_ids, 1.0, empty_id=0)
+            _count_add(cat_count, cat_ids, empty_id=0)
 
             tag_ids = [t.id for t in tx.tags]
             for t in tx.tags:
                 tag_names[t.id] = t.name
             _split_add(tag_amount, tag_ids, amt_base, empty_id=0)
-            _split_add(tag_count, tag_ids, 1.0, empty_id=0)
+            _count_add(tag_count, tag_ids, empty_id=0)
 
             expense_tx_rows.append(
                 TopTransaction(
