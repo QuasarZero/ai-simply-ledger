@@ -1,6 +1,6 @@
 import React from "react";
 import { Box, Paper, Typography } from "@mui/material";
-import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
+import { Cell, Pie, PieChart, ResponsiveContainer, Sector, Tooltip } from "recharts";
 import { PIE_COLORS } from "./chartColors";
 
 type Slice = { id: number; name: string; value: number };
@@ -50,6 +50,57 @@ function renderInnerLabel({
   );
 }
 
+function renderActiveSlice(props: any) {
+  const {
+    cx,
+    cy,
+    midAngle,
+    innerRadius,
+    outerRadius,
+    startAngle,
+    endAngle,
+    fill,
+    payload,
+    percent,
+    value
+  } = props;
+
+  const offset = 10;
+  const sin = Math.sin(-RADIAN * midAngle);
+  const cos = Math.cos(-RADIAN * midAngle);
+  const dx = cos * offset;
+  const dy = sin * offset;
+
+  return (
+    <g>
+      <Sector
+        cx={cx + dx}
+        cy={cy + dy}
+        innerRadius={innerRadius}
+        outerRadius={outerRadius + 6}
+        startAngle={startAngle}
+        endAngle={endAngle}
+        fill={fill}
+        stroke="#fff"
+        strokeWidth={2}
+      />
+      {renderInnerLabel({
+        cx: cx + dx,
+        cy: cy + dy,
+        midAngle,
+        innerRadius,
+        outerRadius: outerRadius + 6,
+        percent,
+        value
+      })}
+      {/* keep tooltip-friendly semantics */}
+      <title>
+        {payload?.name}: {value}
+      </title>
+    </g>
+  );
+}
+
 export default function PieCard({
   title,
   data,
@@ -59,15 +110,57 @@ export default function PieCard({
   data: Slice[];
   transformName?: (name: string) => string;
 }) {
+  const [hoverId, setHoverId] = React.useState<number | null>(null);
+  const [activeId, setActiveId] = React.useState<number | null>(null);
+  const [hiddenIds, setHiddenIds] = React.useState<number[]>([]);
+
   const chartData = (data || []).map((d) => ({
     ...d,
     name: transformName ? transformName(d.name) : d.name
   }));
 
-  const legendItems = chartData.map((d, idx) => ({
-    name: d.name,
-    color: PIE_COLORS[idx % PIE_COLORS.length]
-  }));
+  const colorById = React.useMemo(() => {
+    const map = new Map<number, string>();
+    chartData.forEach((d, idx) => {
+      map.set(d.id, PIE_COLORS[idx % PIE_COLORS.length]);
+    });
+    return map;
+  }, [chartData]);
+
+  const legendItems = React.useMemo(
+    () =>
+      chartData.map((d) => ({
+        id: d.id,
+        name: d.name,
+        color: colorById.get(d.id) ?? PIE_COLORS[0]
+      })),
+    [chartData, colorById]
+  );
+
+  const visibleData = React.useMemo(
+    () => chartData.filter((d) => !hiddenIds.includes(d.id)),
+    [chartData, hiddenIds]
+  );
+
+  React.useEffect(() => {
+    if (activeId != null && hiddenIds.includes(activeId)) setActiveId(null);
+    if (hoverId != null && hiddenIds.includes(hoverId)) setHoverId(null);
+  }, [activeId, hiddenIds, hoverId]);
+
+  const activeIndex = React.useMemo(() => {
+    if (activeId == null) return -1;
+    return visibleData.findIndex((d) => d.id === activeId);
+  }, [activeId, visibleData]);
+
+  const labelRenderer = React.useCallback(
+    (props: any) => {
+      // The active slice's label is rendered by `activeShape` (so it moves with the slice).
+      // Prevent the default label from rendering twice.
+      if (activeId != null && props?.payload?.id === activeId) return null;
+      return renderInnerLabel(props);
+    },
+    [activeId]
+  );
 
   return (
     <Paper sx={{ p: 2, height: 340, display: "flex", flexDirection: "column" }}>
@@ -80,14 +173,37 @@ export default function PieCard({
             <Pie
               dataKey="value"
               nameKey="name"
-              data={chartData}
+              data={visibleData}
               outerRadius={104}
               labelLine={false}
-              label={renderInnerLabel}
+              label={labelRenderer}
+              activeIndex={activeIndex}
+              activeShape={renderActiveSlice}
+              onMouseLeave={() => setHoverId(null)}
+              onMouseEnter={(_, index) => {
+                const item = visibleData[index];
+                if (item) setHoverId(item.id);
+              }}
+              onClick={(_, index) => {
+                const item = visibleData[index];
+                if (!item) return;
+                setActiveId((prev) => (prev === item.id ? null : item.id));
+              }}
             >
-              {chartData.map((_, idx) => (
-                <Cell key={idx} fill={PIE_COLORS[idx % PIE_COLORS.length]} />
-              ))}
+              {visibleData.map((d) => {
+                const focusId = hoverId ?? activeId;
+                const isFocused = focusId != null && d.id === focusId;
+                const shouldDim = focusId != null && d.id !== focusId;
+                return (
+                  <Cell
+                    key={d.id}
+                    fill={colorById.get(d.id) ?? PIE_COLORS[0]}
+                    opacity={shouldDim ? 0.25 : 1}
+                    stroke={isFocused ? "#fff" : "transparent"}
+                    strokeWidth={isFocused ? 2 : 1}
+                  />
+                );
+              })}
             </Pie>
             <Tooltip />
           </PieChart>
@@ -103,14 +219,33 @@ export default function PieCard({
           overflowY: "auto"
         }}
       >
-        {legendItems.map((it) => (
-          <Box key={it.name} sx={{ display: "inline-flex", alignItems: "center", gap: 0.75 }}>
+        {legendItems.map((it) => {
+          const isHidden = hiddenIds.includes(it.id);
+          return (
+          <Box
+            key={it.id}
+            onMouseEnter={() => setHoverId(isHidden ? null : it.id)}
+            onMouseLeave={() => setHoverId(null)}
+            onClick={() =>
+              setHiddenIds((prev) => (prev.includes(it.id) ? prev.filter((x) => x !== it.id) : [...prev, it.id]))
+            }
+            sx={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 0.75,
+              cursor: "pointer",
+              userSelect: "none",
+              opacity: isHidden ? 0.4 : 1,
+              textDecoration: isHidden ? "line-through" : "none"
+            }}
+          >
             <Box sx={{ width: 10, height: 10, borderRadius: 0.5, bgcolor: it.color, flex: "0 0 auto" }} />
             <Typography variant="caption" sx={{ lineHeight: 1.2 }}>
               {it.name}
             </Typography>
           </Box>
-        ))}
+        );
+        })}
       </Box>
     </Paper>
   );

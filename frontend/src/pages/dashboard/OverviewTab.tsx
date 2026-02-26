@@ -16,6 +16,11 @@ import PieCard from "./PieCard";
 
 export default function OverviewTab({ data }: { data: DashboardData | null }) {
   const { t } = useTranslation();
+  const [hoverSeries, setHoverSeries] = React.useState<"income" | "expense" | null>(null);
+  const [hiddenSeries, setHiddenSeries] = React.useState<{ income: boolean; expense: boolean }>({
+    income: false,
+    expense: false
+  });
   return (
     <Stack spacing={2}>
       <Paper sx={{ p: 2, height: 320, display: "flex", flexDirection: "column" }}>
@@ -29,8 +34,24 @@ export default function OverviewTab({ data }: { data: DashboardData | null }) {
               <XAxis dataKey="date" />
               <YAxis />
               <Tooltip />
-              <Line type="monotone" dataKey="income" stroke="#2e7d32" name={t("income")} />
-              <Line type="monotone" dataKey="expense" stroke="#d32f2f" name={t("expense")} />
+              <Line
+                type="monotone"
+                dataKey="income"
+                stroke="#2e7d32"
+                name={t("income")}
+                hide={hiddenSeries.income}
+                opacity={hoverSeries != null && hoverSeries !== "income" ? 0.2 : 1}
+                strokeWidth={hoverSeries === "income" ? 3 : 2}
+              />
+              <Line
+                type="monotone"
+                dataKey="expense"
+                stroke="#d32f2f"
+                name={t("expense")}
+                hide={hiddenSeries.expense}
+                opacity={hoverSeries != null && hoverSeries !== "expense" ? 0.2 : 1}
+                strokeWidth={hoverSeries === "expense" ? 3 : 2}
+              />
             </LineChart>
           </ResponsiveContainer>
         </Box>
@@ -42,13 +63,39 @@ export default function OverviewTab({ data }: { data: DashboardData | null }) {
             gap: 1.5
           }}
         >
-          <Box sx={{ display: "inline-flex", alignItems: "center", gap: 0.75 }}>
+          <Box
+            onMouseEnter={() => setHoverSeries(hiddenSeries.income ? null : "income")}
+            onMouseLeave={() => setHoverSeries(null)}
+            onClick={() => setHiddenSeries((s) => ({ ...s, income: !s.income }))}
+            sx={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 0.75,
+              cursor: "pointer",
+              userSelect: "none",
+              opacity: hiddenSeries.income ? 0.4 : 1,
+              textDecoration: hiddenSeries.income ? "line-through" : "none"
+            }}
+          >
             <Box sx={{ width: 10, height: 10, borderRadius: 0.5, bgcolor: "#2e7d32", flex: "0 0 auto" }} />
             <Typography variant="caption" sx={{ lineHeight: 1.2 }}>
               {t("income")}
             </Typography>
           </Box>
-          <Box sx={{ display: "inline-flex", alignItems: "center", gap: 0.75 }}>
+          <Box
+            onMouseEnter={() => setHoverSeries(hiddenSeries.expense ? null : "expense")}
+            onMouseLeave={() => setHoverSeries(null)}
+            onClick={() => setHiddenSeries((s) => ({ ...s, expense: !s.expense }))}
+            sx={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 0.75,
+              cursor: "pointer",
+              userSelect: "none",
+              opacity: hiddenSeries.expense ? 0.4 : 1,
+              textDecoration: hiddenSeries.expense ? "line-through" : "none"
+            }}
+          >
             <Box sx={{ width: 10, height: 10, borderRadius: 0.5, bgcolor: "#d32f2f", flex: "0 0 auto" }} />
             <Typography variant="caption" sx={{ lineHeight: 1.2 }}>
               {t("expense")}
