@@ -5,7 +5,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.db import get_db
-from app.deps import get_current_user, require_admin
+from app.deps import get_current_user
 from app.models import Tag, Transaction, transaction_tags, User
 from app.schemas.tags import TagCreate, TagOut, TagUpdate
 
@@ -45,7 +45,7 @@ def create_tag(payload: TagCreate, db: Session = Depends(get_db), _: User = Depe
     return TagOut(id=t.id, name=t.name, created_at=t.created_at, used_count=0)
 
 
-@router.patch("/{tag_id}", response_model=TagOut, dependencies=[Depends(require_admin)])
+@router.patch("/{tag_id}", response_model=TagOut)
 def update_tag(tag_id: int, payload: TagUpdate, db: Session = Depends(get_db)):
     t = db.query(Tag).filter(Tag.id == tag_id).first()
     if not t:
@@ -65,7 +65,7 @@ def update_tag(tag_id: int, payload: TagUpdate, db: Session = Depends(get_db)):
     return TagOut(id=t.id, name=t.name, created_at=t.created_at, used_count=int(used_count))
 
 
-@router.delete("/{tag_id}", dependencies=[Depends(require_admin)])
+@router.delete("/{tag_id}")
 def delete_tag(tag_id: int, db: Session = Depends(get_db)):
     t = db.query(Tag).filter(Tag.id == tag_id).first()
     if not t:

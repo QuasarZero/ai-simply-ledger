@@ -39,7 +39,9 @@ export function AppLayout({
   const items = useMemo(() => {
     const base = [
       { to: "/", label: t("dashboard") },
-      { to: "/transactions", label: t("transactions") }
+      { to: "/transactions", label: t("transactions") },
+      { to: "/tags", label: t("tags") },
+      { to: "/profile", label: t("profile") }
     ];
     if (me?.is_admin) {
       base.push({ to: "/admin/transactions", label: t("adminTransactions") });
@@ -114,4 +116,3 @@ export function AppLayout({
     </Box>
   );
 }
-

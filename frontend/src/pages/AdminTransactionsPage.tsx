@@ -44,7 +44,7 @@ export function AdminTransactionsPage() {
   const { confirm, dialog } = useConfirm();
   const [searchParams, setSearchParams] = useSearchParams();
   const [items, setItems] = useState<Tx[]>([]);
-  const [userId, setUserId] = useState<string>("");
+  const [userId, setUserId] = useState<string>(() => searchParams.get("userId") || "");
   const { preset, setPreset, start, setStart, end, setEnd } = usePersistedDateRange(
     "dateRange:adminTransactions",
     30

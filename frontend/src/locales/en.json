@@ -80,5 +80,11 @@
   "delete": "Delete",
   "clear": "Clear",
   "linkedCategory": "Category",
-  "linkedTag": "Tag"
+  "linkedTag": "Tag",
+  "profile": "Profile",
+  "username": "Username",
+  "email": "Email",
+  "currentPassword": "Current password",
+  "newPassword": "New password",
+  "saved": "Saved"
 }

@@ -81,5 +81,11 @@
   "delete": "删除",
   "clear": "清除",
   "linkedCategory": "分类",
-  "linkedTag": "标签"
+  "linkedTag": "标签",
+  "profile": "个人中心",
+  "username": "用户名",
+  "email": "邮箱",
+  "currentPassword": "当前密码",
+  "newPassword": "新密码",
+  "saved": "已保存"
 }

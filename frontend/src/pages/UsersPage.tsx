@@ -18,6 +18,7 @@ import {
   Typography
 } from "@mui/material";
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router-dom";
 
 import { api } from "../api/client";
 
@@ -32,6 +33,7 @@ type User = {
 
 export function UsersPage() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const [items, setItems] = useState<User[]>([]);
 
   const [open, setOpen] = useState(false);
@@ -147,7 +149,11 @@ export function UsersPage() {
               <TableRow key={u.id}>
                 <TableCell>{u.id}</TableCell>
                 <TableCell>{u.email}</TableCell>
-                <TableCell>{u.username}</TableCell>
+                <TableCell>
+                  <Button size="small" onClick={() => navigate(`/admin/transactions?userId=${u.id}`)}>
+                    {u.username}
+                  </Button>
+                </TableCell>
                 <TableCell>{u.is_admin ? "Y" : ""}</TableCell>
                 <TableCell>{u.is_active ? "Y" : ""}</TableCell>
                 <TableCell align="right">

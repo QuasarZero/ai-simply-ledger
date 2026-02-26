@@ -15,6 +15,7 @@ import { AdminTransactionsPage } from "./pages/AdminTransactionsPage";
 import { CategoriesPage } from "./pages/CategoriesPage";
 import { TagsPage } from "./pages/TagsPage";
 import { UsersPage } from "./pages/UsersPage";
+import { ProfilePage } from "./pages/ProfilePage";
 
 export default function App() {
   const saved = (localStorage.getItem("theme") as "light" | "dark" | null) || "light";
@@ -45,6 +46,8 @@ export default function App() {
               >
                 <Route index element={<DashboardPage />} />
                 <Route path="transactions" element={<TransactionsPage />} />
+                <Route path="tags" element={<TagsPage />} />
+                <Route path="profile" element={<ProfilePage />} />
                 <Route
                   path="admin/transactions"
                   element={
@@ -85,4 +88,3 @@ export default function App() {
     </ThemeProvider>
   );
 }
-

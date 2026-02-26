@@ -32,3 +32,8 @@ class UserOut(BaseModel):
 class ResetPasswordIn(BaseModel):
     password: str = Field(min_length=6, max_length=128)
 
+
+class MeUpdateIn(BaseModel):
+    email: EmailStr | None = None
+    current_password: str = Field(min_length=1, max_length=128)
+    new_password: str | None = Field(default=None, min_length=6, max_length=128)
