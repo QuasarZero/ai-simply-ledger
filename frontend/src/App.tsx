@@ -3,6 +3,7 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { CssBaseline, ThemeProvider } from "@mui/material";
 import { LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
+import { useTranslation } from "react-i18next";
 
 import { AuthProvider } from "./auth/AuthContext";
 import { buildTheme } from "./theme";
@@ -18,9 +19,12 @@ import { UsersPage } from "./pages/UsersPage";
 import { ProfilePage } from "./pages/ProfilePage";
 
 export default function App() {
+  const { i18n } = useTranslation();
   const saved = (localStorage.getItem("theme") as "light" | "dark" | null) || "light";
   const [mode, setMode] = useState<"light" | "dark">(saved);
   const theme = useMemo(() => buildTheme(mode), [mode]);
+
+  const adapterLocale = i18n.language === "zh" ? "zh-cn" : i18n.language === "ja" ? "ja" : "en";
 
   function toggleTheme() {
     const next = mode === "light" ? "dark" : "light";
@@ -31,7 +35,7 @@ export default function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <LocalizationProvider dateAdapter={AdapterDayjs}>
+      <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale={adapterLocale}>
         <AuthProvider>
           <BrowserRouter>
             <Routes>

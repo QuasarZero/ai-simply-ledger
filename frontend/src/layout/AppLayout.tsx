@@ -5,10 +5,13 @@ import {
   Button,
   Divider,
   Drawer,
+  FormControl,
   IconButton,
   List,
   ListItemButton,
   ListItemText,
+  MenuItem,
+  Select,
   Toolbar,
   Typography
 } from "@mui/material";
@@ -20,8 +23,22 @@ import { useTranslation } from "react-i18next";
 
 import { useAuth } from "../auth/AuthContext";
 import i18n from "../i18n";
+import dayjs from "../dayjs";
 
 const drawerWidth = 240;
+const LANG_OPTIONS = [
+  { value: "zh", label: "中文" },
+  { value: "en", label: "English" },
+  { value: "ja", label: "日本語" }
+] as const;
+type LangValue = (typeof LANG_OPTIONS)[number]["value"];
+
+function normalizeLang(value: string | undefined | null): LangValue {
+  const v = (value || "zh").toLowerCase();
+  if (v.startsWith("zh")) return "zh";
+  if (v.startsWith("ja")) return "ja";
+  return "en";
+}
 
 export function AppLayout({
   mode,
@@ -69,10 +86,10 @@ export function AppLayout({
     setOpen(false);
   }
 
-  function switchLang() {
-    const next = i18n.language === "zh" ? "en" : "zh";
+  function setLang(next: LangValue) {
     i18n.changeLanguage(next);
     localStorage.setItem("lang", next);
+    dayjs.locale(next === "zh" ? "zh-cn" : next);
   }
 
   const drawer = (
@@ -105,9 +122,25 @@ export function AppLayout({
           <Typography variant="h6" sx={{ flexGrow: 1 }}>
             {me ? `${me.username}${me.is_admin ? " (admin)" : ""}` : ""}
           </Typography>
-          <Button color="inherit" onClick={switchLang}>
-            {t("language")}: {i18n.language.toUpperCase()}
-          </Button>
+          <FormControl size="small" variant="standard" sx={{ minWidth: 120 }}>
+            <Select
+              value={normalizeLang(i18n.language)}
+              onChange={(e) => setLang(e.target.value as LangValue)}
+              disableUnderline
+              sx={{
+                color: "inherit",
+                "& .MuiSelect-icon": { color: "inherit" },
+                "& .MuiSelect-select": { py: 0.5 }
+              }}
+              renderValue={(value) => LANG_OPTIONS.find((x) => x.value === value)?.label || String(value)}
+            >
+              {LANG_OPTIONS.map((o) => (
+                <MenuItem key={o.value} value={o.value}>
+                  {o.label}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
           <IconButton color="inherit" onClick={toggleTheme} sx={{ ml: 1 }}>
             {mode === "light" ? <DarkModeIcon /> : <LightModeIcon />}
           </IconButton>
