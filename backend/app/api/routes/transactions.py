@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from decimal import Decimal
 from datetime import date, datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -8,7 +9,13 @@ from sqlalchemy.orm import Session, joinedload
 from app.db import get_db
 from app.deps import get_current_user
 from app.models import Category, Tag, Transaction, User
-from app.schemas.transactions import TransactionCreate, TransactionList, TransactionOut, TransactionUpdate
+from app.schemas.transactions import (
+    BulkActionIn,
+    TransactionCreate,
+    TransactionList,
+    TransactionOut,
+    TransactionUpdate,
+)
 
 router = APIRouter(prefix="/transactions")
 
@@ -50,6 +57,10 @@ def list_transactions(
     q: str | None = None,
     type: str | None = None,
     voided: bool = False,
+    category_id: int | None = None,
+    tag_id: int | None = None,
+    min_amount: float | None = None,
+    max_amount: float | None = None,
     skip: int = 0,
     limit: int = 50,
 ):
@@ -72,6 +83,14 @@ def list_transactions(
         query = query.filter(Transaction.type == type)
     if q:
         query = query.filter(Transaction.note.ilike(f"%{q}%"))
+    if category_id is not None:
+        query = query.filter(Transaction.categories.any(Category.id == category_id))
+    if tag_id is not None:
+        query = query.filter(Transaction.tags.any(Tag.id == tag_id))
+    if min_amount is not None:
+        query = query.filter(Transaction.amount >= Decimal(str(min_amount)))
+    if max_amount is not None:
+        query = query.filter(Transaction.amount <= Decimal(str(max_amount)))
 
     total = query.count()
     items = query.offset(skip).limit(min(limit, 200)).all()
@@ -194,3 +213,37 @@ def delete_transaction(
     db.delete(tx)
     db.commit()
     return {"ok": True}
+
+
+@router.post("/bulk")
+@router.post("/bulk/")
+def bulk_action(
+    payload: BulkActionIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    ids = [int(x) for x in payload.ids if int(x) > 0]
+    if not ids:
+        return {"ok": True, "affected": 0}
+
+    q = db.query(Transaction).filter(Transaction.user_id == current_user.id).filter(Transaction.id.in_(ids))
+    items = q.all()
+    if payload.action == "delete":
+        for tx in items:
+            db.delete(tx)
+        db.commit()
+        return {"ok": True, "affected": len(items)}
+
+    if payload.action == "void":
+        for tx in items:
+            tx.is_voided = True
+        db.commit()
+        return {"ok": True, "affected": len(items)}
+
+    if payload.action == "restore":
+        for tx in items:
+            tx.is_voided = False
+        db.commit()
+        return {"ok": True, "affected": len(items)}
+
+    raise HTTPException(status_code=400, detail="Invalid action")

@@ -16,13 +16,19 @@ import {
   Typography
 } from "@mui/material";
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router-dom";
 
 import { api } from "../api/client";
+import { useConfirm } from "../hooks/useConfirm";
+import { useAuth } from "../auth/AuthContext";
 
 type Category = { id: number; name: string; description?: string | null };
 
 export function CategoriesPage() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
+  const { confirm, dialog } = useConfirm();
+  const { me } = useAuth();
   const [items, setItems] = useState<Category[]>([]);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Category | null>(null);
@@ -63,6 +69,8 @@ export function CategoriesPage() {
   }
 
   async function del(id: number) {
+    const ok = await confirm({ message: t("confirmDeleteCategory"), danger: true });
+    if (!ok) return;
     await api.delete(`/categories/${id}`);
     await load();
   }
@@ -94,14 +102,25 @@ export function CategoriesPage() {
             {items.map((c) => (
               <TableRow key={c.id}>
                 <TableCell>{c.id}</TableCell>
-                <TableCell>{c.name}</TableCell>
+                <TableCell>
+                  <Button
+                    size="small"
+                    onClick={(e) => {
+                      const base =
+                        me?.is_admin && !e.altKey ? "/admin/transactions" : "/transactions";
+                      navigate(`${base}?categoryId=${c.id}`);
+                    }}
+                  >
+                    {c.name}
+                  </Button>
+                </TableCell>
                 <TableCell>{c.description || ""}</TableCell>
                 <TableCell align="right">
                   <Button size="small" onClick={() => openEdit(c)}>
-                    Edit
+                    {t("edit")}
                   </Button>
                   <Button size="small" color="error" onClick={() => del(c.id)}>
-                    Delete
+                    {t("delete")}
                   </Button>
                 </TableCell>
               </TableRow>
@@ -111,7 +130,7 @@ export function CategoriesPage() {
       </Paper>
 
       <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>{editing ? "Edit" : t("create")}</DialogTitle>
+        <DialogTitle>{editing ? t("edit") : t("create")}</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
             <TextField label="Name" value={name} onChange={(e) => setName(e.target.value)} />
@@ -125,7 +144,7 @@ export function CategoriesPage() {
           </Button>
         </DialogActions>
       </Dialog>
+      {dialog}
     </Stack>
   );
 }
-

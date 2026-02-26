@@ -16,13 +16,19 @@ import {
   Typography
 } from "@mui/material";
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router-dom";
 
 import { api } from "../api/client";
+import { useConfirm } from "../hooks/useConfirm";
+import { useAuth } from "../auth/AuthContext";
 
 type TagWithUsage = { id: number; name: string; used_count?: number };
 
 export function TagsPage() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
+  const { confirm, dialog } = useConfirm();
+  const { me } = useAuth();
   const [items, setItems] = useState<TagWithUsage[]>([]);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<TagWithUsage | null>(null);
@@ -60,6 +66,8 @@ export function TagsPage() {
   }
 
   async function del(id: number) {
+    const ok = await confirm({ message: t("confirmDeleteTag"), danger: true });
+    if (!ok) return;
     await api.delete(`/tags/${id}`);
     await load();
   }
@@ -91,14 +99,24 @@ export function TagsPage() {
             {items.map((x) => (
               <TableRow key={x.id}>
                 <TableCell>{x.id}</TableCell>
-                <TableCell>{x.name}</TableCell>
+                <TableCell>
+                  <Button
+                    size="small"
+                    onClick={(e) => {
+                      const base = me?.is_admin && !e.altKey ? "/admin/transactions" : "/transactions";
+                      navigate(`${base}?tagId=${x.id}`);
+                    }}
+                  >
+                    {x.name}
+                  </Button>
+                </TableCell>
                 <TableCell>{x.used_count ?? 0}</TableCell>
                 <TableCell align="right">
                   <Button size="small" onClick={() => openEdit(x)}>
-                    Edit
+                    {t("edit")}
                   </Button>
                   <Button size="small" color="error" onClick={() => del(x.id)}>
-                    Delete
+                    {t("delete")}
                   </Button>
                 </TableCell>
               </TableRow>
@@ -108,7 +126,7 @@ export function TagsPage() {
       </Paper>
 
       <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>{editing ? "Edit" : t("create")}</DialogTitle>
+        <DialogTitle>{editing ? t("edit") : t("create")}</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
             <TextField label="Name" value={name} onChange={(e) => setName(e.target.value)} />
@@ -121,6 +139,7 @@ export function TagsPage() {
           </Button>
         </DialogActions>
       </Dialog>
+      {dialog}
     </Stack>
   );
 }

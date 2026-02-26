@@ -152,13 +152,13 @@ export function UsersPage() {
                 <TableCell>{u.is_active ? "Y" : ""}</TableCell>
                 <TableCell align="right">
                   <Button size="small" onClick={() => openEdit(u)}>
-                    Edit
+                    {t("edit")}
                   </Button>
                   <Button size="small" onClick={() => openResetDialog(u)}>
                     Reset PW
                   </Button>
                   <Button size="small" color="error" onClick={() => del(u.id)}>
-                    Delete
+                    {t("delete")}
                   </Button>
                 </TableCell>
               </TableRow>
@@ -168,7 +168,7 @@ export function UsersPage() {
       </Paper>
 
       <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>{editing ? "Edit" : t("create")}</DialogTitle>
+        <DialogTitle>{editing ? t("edit") : t("create")}</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
             <TextField label="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
@@ -221,4 +221,3 @@ export function UsersPage() {
     </Stack>
   );
 }
-

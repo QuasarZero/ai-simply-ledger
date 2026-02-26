@@ -46,3 +46,8 @@ class TransactionOut(BaseModel):
 class TransactionList(BaseModel):
     items: list[TransactionOut]
     total: int
+
+
+class BulkActionIn(BaseModel):
+    ids: list[int]
+    action: str = Field(pattern="^(void|restore|delete)$")

@@ -1,8 +1,9 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Box,
   Button,
   Checkbox,
+  Chip,
   Paper,
   FormControlLabel,
   Stack,
@@ -15,13 +16,14 @@ import {
   Typography
 } from "@mui/material";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
-import type { Dayjs } from "dayjs";
 import { useTranslation } from "react-i18next";
+import { useSearchParams } from "react-router-dom";
 
 import { api } from "../api/client";
 import dayjs from "../dayjs";
-import { DateRangePresets, type PresetKey } from "../components/DateRangePresets";
+import { DateRangePresets } from "../components/DateRangePresets";
 import { usePersistedDateRange } from "../hooks/usePersistedDateRange";
+import { useConfirm } from "../hooks/useConfirm";
 
 type Tx = {
   id: number;
@@ -34,8 +36,13 @@ type Tx = {
   is_voided: boolean;
 };
 
+type Category = { id: number; name: string };
+type Tag = { id: number; name: string };
+
 export function AdminTransactionsPage() {
   const { t } = useTranslation();
+  const { confirm, dialog } = useConfirm();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [items, setItems] = useState<Tx[]>([]);
   const [userId, setUserId] = useState<string>("");
   const { preset, setPreset, start, setStart, end, setEnd } = usePersistedDateRange(
@@ -43,6 +50,20 @@ export function AdminTransactionsPage() {
     30
   );
   const [voided, setVoided] = useState(false);
+  const [minAmount, setMinAmount] = useState<string>("");
+  const [maxAmount, setMaxAmount] = useState<string>("");
+  const [linkCategoryId, setLinkCategoryId] = useState<number | null>(() => {
+    const v = searchParams.get("categoryId");
+    return v && !Number.isNaN(Number(v)) ? Number(v) : null;
+  });
+  const [linkTagId, setLinkTagId] = useState<number | null>(() => {
+    const v = searchParams.get("tagId");
+    return v && !Number.isNaN(Number(v)) ? Number(v) : null;
+  });
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [tags, setTags] = useState<Tag[]>([]);
+  const [appliedParams, setAppliedParams] = useState<Record<string, any> | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 
   useEffect(() => {
     const key = "filter:adminTransactions:voided";
@@ -54,33 +75,84 @@ export function AdminTransactionsPage() {
     localStorage.setItem("filter:adminTransactions:voided", voided ? "true" : "false");
   }, [voided]);
 
-  const params = useMemo(
-    () => ({
+  useEffect(() => {
+    Promise.all([api.get("/categories"), api.get("/tags")])
+      .then(([c, tg]) => {
+        setCategories((c.data || []) as Category[]);
+        setTags((tg.data || []) as Tag[]);
+      })
+      .catch(() => {});
+  }, []);
+
+  function buildParams() {
+    const p: Record<string, any> = {
       start: start.format("YYYY-MM-DD"),
       end: end.format("YYYY-MM-DD"),
       user_id: userId ? Number(userId) : undefined,
       voided: voided ? true : undefined
-    }),
-    [start, end, userId, voided]
-  );
+    };
+    const min = minAmount.trim();
+    const max = maxAmount.trim();
+    if (min !== "" && !Number.isNaN(Number(min))) p.min_amount = Number(min);
+    if (max !== "" && !Number.isNaN(Number(max))) p.max_amount = Number(max);
+    if (linkCategoryId) p.category_id = linkCategoryId;
+    if (linkTagId) p.tag_id = linkTagId;
+    return p;
+  }
 
-  async function load() {
+  function applyFilters() {
+    setSelectedIds(new Set());
+    setAppliedParams(buildParams());
+  }
+
+  async function load(params: Record<string, any>) {
     const res = await api.get("/admin/transactions", { params });
     setItems((res.data.items || []) as Tx[]);
   }
 
   useEffect(() => {
-    load().catch(() => {});
-  }, [params]);
+    if (!appliedParams) return;
+    load(appliedParams).catch(() => {});
+  }, [appliedParams]);
+
+  useEffect(() => {
+    setAppliedParams(buildParams());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function del(txId: number) {
+    const ok = await confirm({ message: t("confirmDeleteTx"), danger: true });
+    if (!ok) return;
     await api.delete(`/admin/transactions/${txId}`);
-    await load();
+    if (appliedParams) await load(appliedParams);
   }
 
   async function toggleVoided(tx: Tx) {
+    const ok = await confirm({
+      message: tx.is_voided ? t("confirmRestoreTx") : t("confirmVoidTx"),
+      danger: !tx.is_voided
+    });
+    if (!ok) return;
     await api.patch(`/admin/transactions/${tx.id}`, { is_voided: !tx.is_voided });
-    await load();
+    if (appliedParams) await load(appliedParams);
+  }
+
+  async function bulk(action: "void" | "restore" | "delete") {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    const ok = await confirm({
+      message:
+        action === "delete"
+          ? t("confirmBulkDelete")
+          : action === "void"
+            ? t("confirmBulkVoid")
+            : t("confirmBulkRestore"),
+      danger: action !== "restore"
+    });
+    if (!ok) return;
+    await api.post("/admin/transactions/bulk", { ids, action });
+    setSelectedIds(new Set());
+    if (appliedParams) await load(appliedParams);
   }
 
   return (
@@ -115,6 +187,48 @@ export function AdminTransactionsPage() {
             control={<Checkbox checked={voided} onChange={(e) => setVoided(e.target.checked)} />}
             label={t("voided")}
           />
+          {linkCategoryId ? (
+            <Chip
+              color="primary"
+              variant="outlined"
+              label={`${t("linkedCategory")}: ${
+                categories.find((c) => c.id === linkCategoryId)?.name ?? `#${linkCategoryId}`
+              }`}
+              onDelete={() => {
+                setLinkCategoryId(null);
+                const next = new URLSearchParams(searchParams);
+                next.delete("categoryId");
+                setSearchParams(next);
+              }}
+            />
+          ) : null}
+          {linkTagId ? (
+            <Chip
+              color="secondary"
+              variant="outlined"
+              label={`${t("linkedTag")}: ${tags.find((x) => x.id === linkTagId)?.name ?? `#${linkTagId}`}`}
+              onDelete={() => {
+                setLinkTagId(null);
+                const next = new URLSearchParams(searchParams);
+                next.delete("tagId");
+                setSearchParams(next);
+              }}
+            />
+          ) : null}
+          <TextField
+            label={t("minAmount")}
+            value={minAmount}
+            onChange={(e) => setMinAmount(e.target.value)}
+            size="small"
+            sx={{ width: 140 }}
+          />
+          <TextField
+            label={t("maxAmount")}
+            value={maxAmount}
+            onChange={(e) => setMaxAmount(e.target.value)}
+            size="small"
+            sx={{ width: 140 }}
+          />
           <TextField
             label="User ID"
             value={userId}
@@ -123,7 +237,25 @@ export function AdminTransactionsPage() {
             sx={{ width: 140 }}
           />
           <Box sx={{ flexGrow: 1 }} />
-          <Button onClick={() => load()}>{t("search")}</Button>
+          {selectedIds.size > 0 ? (
+            <Stack direction="row" spacing={1} alignItems="center">
+              <Typography variant="body2">
+                {t("selected")}: {selectedIds.size}
+              </Typography>
+              <Button size="small" onClick={() => bulk("void")}>
+                {t("void")}
+              </Button>
+              <Button size="small" onClick={() => bulk("restore")}>
+                {t("restore")}
+              </Button>
+              <Button size="small" color="error" onClick={() => bulk("delete")}>
+                {t("delete")}
+              </Button>
+            </Stack>
+          ) : null}
+          <Button variant="outlined" onClick={applyFilters}>
+            {t("apply")}
+          </Button>
         </Stack>
       </Paper>
 
@@ -134,6 +266,20 @@ export function AdminTransactionsPage() {
         <Table size="small">
           <TableHead>
             <TableRow>
+              <TableCell padding="checkbox">
+                <Checkbox
+                  checked={items.length > 0 && items.every((x) => selectedIds.has(x.id))}
+                  indeterminate={
+                    selectedIds.size > 0 &&
+                    items.some((x) => selectedIds.has(x.id)) &&
+                    !items.every((x) => selectedIds.has(x.id))
+                  }
+                  onChange={(e) => {
+                    if (e.target.checked) setSelectedIds(new Set(items.map((x) => x.id)));
+                    else setSelectedIds(new Set());
+                  }}
+                />
+              </TableCell>
               <TableCell>ID</TableCell>
               <TableCell>User</TableCell>
               <TableCell>{t("occurredAt")}</TableCell>
@@ -147,6 +293,19 @@ export function AdminTransactionsPage() {
           <TableBody>
             {items.map((it) => (
               <TableRow key={it.id}>
+                <TableCell padding="checkbox">
+                  <Checkbox
+                    checked={selectedIds.has(it.id)}
+                    onChange={(e) => {
+                      setSelectedIds((prev) => {
+                        const next = new Set(prev);
+                        if (e.target.checked) next.add(it.id);
+                        else next.delete(it.id);
+                        return next;
+                      });
+                    }}
+                  />
+                </TableCell>
                 <TableCell>{it.id}</TableCell>
                 <TableCell>{it.user_id}</TableCell>
                 <TableCell>{dayjs(it.occurred_at).format("YYYY-MM-DD")}</TableCell>
@@ -161,7 +320,7 @@ export function AdminTransactionsPage() {
                     {it.is_voided ? t("restore") : t("void")}
                   </Button>
                   <Button color="error" size="small" onClick={() => del(it.id)}>
-                    Delete
+                    {t("delete")}
                   </Button>
                 </TableCell>
               </TableRow>
@@ -169,6 +328,7 @@ export function AdminTransactionsPage() {
           </TableBody>
         </Table>
       </Paper>
+      {dialog}
     </Stack>
   );
 }
