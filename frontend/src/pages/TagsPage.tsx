@@ -89,7 +89,6 @@ export function TagsPage() {
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell>ID</TableCell>
               <TableCell>{t("tags")}</TableCell>
               <TableCell>{t("used")}</TableCell>
               <TableCell />
@@ -98,7 +97,6 @@ export function TagsPage() {
           <TableBody>
             {items.map((x) => (
               <TableRow key={x.id}>
-                <TableCell>{x.id}</TableCell>
                 <TableCell>
                   <Button
                     size="small"

@@ -28,6 +28,7 @@ import { useConfirm } from "../hooks/useConfirm";
 type Tx = {
   id: number;
   user_id: number;
+  user?: { id: number; email: string; username: string } | null;
   type: "income" | "expense";
   amount: number;
   currency: string;
@@ -38,12 +39,14 @@ type Tx = {
 
 type Category = { id: number; name: string };
 type Tag = { id: number; name: string };
+type User = { id: number; email: string; username: string };
 
 export function AdminTransactionsPage() {
   const { t } = useTranslation();
   const { confirm, dialog } = useConfirm();
   const [searchParams, setSearchParams] = useSearchParams();
   const [items, setItems] = useState<Tx[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [userId, setUserId] = useState<string>(() => searchParams.get("userId") || "");
   const { preset, setPreset, start, setStart, end, setEnd } = usePersistedDateRange(
     "dateRange:adminTransactions",
@@ -76,13 +79,20 @@ export function AdminTransactionsPage() {
   }, [voided]);
 
   useEffect(() => {
-    Promise.all([api.get("/categories"), api.get("/tags")])
-      .then(([c, tg]) => {
+    Promise.all([api.get("/categories"), api.get("/tags"), api.get("/admin/users")])
+      .then(([c, tg, u]) => {
         setCategories((c.data || []) as Category[]);
         setTags((tg.data || []) as Tag[]);
+        setUsers((u.data || []) as User[]);
       })
       .catch(() => {});
   }, []);
+
+  const userLabelById = React.useMemo(() => {
+    const map = new Map<number, string>();
+    users.forEach((u) => map.set(u.id, `${u.username} (${u.email})`));
+    return map;
+  }, [users]);
 
   function buildParams() {
     const p: Record<string, any> = {
@@ -237,6 +247,17 @@ export function AdminTransactionsPage() {
             sx={{ width: 140 }}
           />
           <Box sx={{ flexGrow: 1 }} />
+          <Button variant="outlined" onClick={applyFilters}>
+            {t("apply")}
+          </Button>
+        </Stack>
+      </Paper>
+
+      <Paper sx={{ p: 2 }}>
+        <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 1 }}>
+          <Typography variant="h6" sx={{ flexGrow: 1 }}>
+            {t("adminTransactions")}
+          </Typography>
           {selectedIds.size > 0 ? (
             <Stack direction="row" spacing={1} alignItems="center">
               <Typography variant="body2">
@@ -253,16 +274,7 @@ export function AdminTransactionsPage() {
               </Button>
             </Stack>
           ) : null}
-          <Button variant="outlined" onClick={applyFilters}>
-            {t("apply")}
-          </Button>
         </Stack>
-      </Paper>
-
-      <Paper sx={{ p: 2 }}>
-        <Typography variant="h6" sx={{ mb: 1 }}>
-          {t("adminTransactions")}
-        </Typography>
         <Table size="small">
           <TableHead>
             <TableRow>
@@ -280,7 +292,6 @@ export function AdminTransactionsPage() {
                   }}
                 />
               </TableCell>
-              <TableCell>ID</TableCell>
               <TableCell>User</TableCell>
               <TableCell>{t("occurredAt")}</TableCell>
               <TableCell>{t("type")}</TableCell>
@@ -306,8 +317,11 @@ export function AdminTransactionsPage() {
                     }}
                   />
                 </TableCell>
-                <TableCell>{it.id}</TableCell>
-                <TableCell>{it.user_id}</TableCell>
+                <TableCell>
+                  {it.user
+                    ? `${it.user.username} (${it.user.email})`
+                    : userLabelById.get(it.user_id) ?? `#${it.user_id}`}
+                </TableCell>
                 <TableCell>{dayjs(it.occurred_at).format("YYYY-MM-DD")}</TableCell>
                 <TableCell>{it.type === "income" ? t("income") : t("expense")}</TableCell>
                 <TableCell>{it.amount.toFixed(2)}</TableCell>

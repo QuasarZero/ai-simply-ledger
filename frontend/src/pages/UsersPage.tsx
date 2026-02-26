@@ -136,7 +136,6 @@ export function UsersPage() {
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell>ID</TableCell>
               <TableCell>{t("email")}</TableCell>
               <TableCell>{t("username")}</TableCell>
               <TableCell>{t("admin")}</TableCell>
@@ -147,7 +146,6 @@ export function UsersPage() {
           <TableBody>
             {items.map((u) => (
               <TableRow key={u.id}>
-                <TableCell>{u.id}</TableCell>
                 <TableCell>{u.email}</TableCell>
                 <TableCell>
                   <Button size="small" onClick={() => navigate(`/admin/transactions?userId=${u.id}`)}>

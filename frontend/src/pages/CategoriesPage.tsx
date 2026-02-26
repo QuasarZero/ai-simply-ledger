@@ -92,7 +92,6 @@ export function CategoriesPage() {
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell>ID</TableCell>
               <TableCell>{t("categories")}</TableCell>
               <TableCell>{t("note")}</TableCell>
               <TableCell />
@@ -101,7 +100,6 @@ export function CategoriesPage() {
           <TableBody>
             {items.map((c) => (
               <TableRow key={c.id}>
-                <TableCell>{c.id}</TableCell>
                 <TableCell>
                   <Button
                     size="small"

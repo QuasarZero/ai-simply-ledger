@@ -29,6 +29,12 @@ class UserOut(BaseModel):
     created_at: datetime
 
 
+class UserMiniOut(BaseModel):
+    id: int
+    email: str
+    username: str
+
+
 class ResetPasswordIn(BaseModel):
     password: str = Field(min_length=6, max_length=128)
 

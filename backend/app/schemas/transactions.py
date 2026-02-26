@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 
 from app.schemas.categories import CategoryOut
 from app.schemas.tags import TagOut
+from app.schemas.users import UserMiniOut
 
 
 class TransactionCreate(BaseModel):
@@ -45,6 +46,15 @@ class TransactionOut(BaseModel):
 
 class TransactionList(BaseModel):
     items: list[TransactionOut]
+    total: int
+
+
+class TransactionOutAdmin(TransactionOut):
+    user: UserMiniOut | None = None
+
+
+class TransactionListAdmin(BaseModel):
+    items: list[TransactionOutAdmin]
     total: int
 
 

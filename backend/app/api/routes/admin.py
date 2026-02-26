@@ -9,8 +9,13 @@ from sqlalchemy.orm import Session, joinedload
 from app.db import get_db
 from app.deps import require_admin
 from app.models import Category, Tag, Transaction, User
-from app.schemas.transactions import BulkActionIn, TransactionList, TransactionOut, TransactionUpdate
-from app.schemas.users import ResetPasswordIn, UserCreate, UserOut, UserUpdate
+from app.schemas.transactions import (
+    BulkActionIn,
+    TransactionListAdmin,
+    TransactionOutAdmin,
+    TransactionUpdate,
+)
+from app.schemas.users import ResetPasswordIn, UserCreate, UserMiniOut, UserOut, UserUpdate
 from app.security import hash_password
 
 router = APIRouter(dependencies=[Depends(require_admin)])
@@ -24,10 +29,15 @@ def _coerce_date(value) -> date | None:
     return date.fromisoformat(str(value))
 
 
-def _tx_to_out(tx: Transaction) -> TransactionOut:
-    return TransactionOut(
+def _tx_to_out_admin(tx: Transaction) -> TransactionOutAdmin:
+    return TransactionOutAdmin(
         id=tx.id,
         user_id=tx.user_id,
+        user=(
+            UserMiniOut(id=tx.user.id, email=tx.user.email, username=tx.user.username)
+            if tx.user is not None
+            else None
+        ),
         type=tx.type,
         amount=float(tx.amount),
         currency=tx.currency,
@@ -154,7 +164,7 @@ def delete_user(user_id: int, db: Session = Depends(get_db)):
     return {"ok": True}
 
 
-@router.get("/transactions", response_model=TransactionList)
+@router.get("/transactions", response_model=TransactionListAdmin)
 def list_transactions(
     db: Session = Depends(get_db),
     start: date | None = None,
@@ -172,7 +182,7 @@ def list_transactions(
 ):
     query = (
         db.query(Transaction)
-        .options(joinedload(Transaction.categories), joinedload(Transaction.tags))
+        .options(joinedload(Transaction.categories), joinedload(Transaction.tags), joinedload(Transaction.user))
         .filter(Transaction.is_voided == voided)
         .order_by(Transaction.occurred_at.desc())
     )
@@ -201,14 +211,14 @@ def list_transactions(
 
     total = query.count()
     items = query.offset(skip).limit(min(limit, 200)).all()
-    return TransactionList(items=[_tx_to_out(t) for t in items], total=total)
+    return TransactionListAdmin(items=[_tx_to_out_admin(t) for t in items], total=total)
 
 
-@router.patch("/transactions/{tx_id}", response_model=TransactionOut)
+@router.patch("/transactions/{tx_id}", response_model=TransactionOutAdmin)
 def update_transaction_admin(tx_id: int, payload: TransactionUpdate, db: Session = Depends(get_db)):
     tx = (
         db.query(Transaction)
-        .options(joinedload(Transaction.categories), joinedload(Transaction.tags))
+        .options(joinedload(Transaction.categories), joinedload(Transaction.tags), joinedload(Transaction.user))
         .filter(Transaction.id == tx_id)
         .first()
     )
@@ -242,7 +252,7 @@ def update_transaction_admin(tx_id: int, payload: TransactionUpdate, db: Session
 
     db.commit()
     db.refresh(tx)
-    return _tx_to_out(tx)
+    return _tx_to_out_admin(tx)
 
 
 @router.delete("/transactions/{tx_id}")

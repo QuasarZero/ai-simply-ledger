@@ -63,7 +63,6 @@ export default function TopTab({ data }: { data: DashboardData | null }) {
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell>ID</TableCell>
               <TableCell>Date</TableCell>
               <TableCell align="right">Amount (Base)</TableCell>
               <TableCell>Categories</TableCell>
@@ -74,7 +73,6 @@ export default function TopTab({ data }: { data: DashboardData | null }) {
           <TableBody>
             {(data?.top_expense_transactions ?? []).map((x) => (
               <TableRow key={x.id}>
-                <TableCell>{x.id}</TableCell>
                 <TableCell>{dayjs(x.occurred_at).format("YYYY-MM-DD")}</TableCell>
                 <TableCell align="right">{x.amount_base.toFixed(2)}</TableCell>
                 <TableCell>{(x.categories || []).join(", ")}</TableCell>
