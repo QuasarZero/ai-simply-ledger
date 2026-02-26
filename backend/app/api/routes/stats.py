@@ -35,6 +35,7 @@ def summary(
     start: date | None = None,
     end: date | None = None,
     base_currency: str = "CNY",
+    user_id: int | None = None,
 ):
     base_currency = base_currency.upper()
     if not start:
@@ -45,14 +46,18 @@ def summary(
     start_dt = datetime.combine(start, datetime.min.time()).replace(tzinfo=timezone.utc)
     end_dt = datetime.combine(end, datetime.max.time()).replace(tzinfo=timezone.utc)
 
-    txs = (
+    query = (
         db.query(Transaction)
         .options(joinedload(Transaction.categories))
-        .filter(Transaction.user_id == current_user.id)
         .filter(Transaction.is_voided.is_(False))
         .filter(Transaction.occurred_at >= start_dt, Transaction.occurred_at <= end_dt)
-        .all()
     )
+    if current_user.is_admin and user_id is not None:
+        if user_id != 0:
+            query = query.filter(Transaction.user_id == user_id)
+    else:
+        query = query.filter(Transaction.user_id == current_user.id)
+    txs = query.all()
 
     rates = get_rates(base_currency)
 
@@ -137,6 +142,7 @@ def dashboard(
     start: date | None = None,
     end: date | None = None,
     base_currency: str = "CNY",
+    user_id: int | None = None,
 ):
     base_currency = base_currency.upper()
     if not start:
@@ -147,14 +153,24 @@ def dashboard(
     start_dt = datetime.combine(start, datetime.min.time()).replace(tzinfo=timezone.utc)
     end_dt = datetime.combine(end, datetime.max.time()).replace(tzinfo=timezone.utc)
 
-    txs = (
+    query = (
         db.query(Transaction)
         .options(joinedload(Transaction.categories), joinedload(Transaction.tags))
-        .filter(Transaction.user_id == current_user.id)
         .filter(Transaction.is_voided.is_(False))
         .filter(Transaction.occurred_at >= start_dt, Transaction.occurred_at <= end_dt)
-        .all()
     )
+    requested_user_id = user_id
+    effective_user_id: int | None
+    if current_user.is_admin and user_id is not None:
+        if user_id != 0:
+            query = query.filter(Transaction.user_id == user_id)
+            effective_user_id = int(user_id)
+        else:
+            effective_user_id = None
+    else:
+        query = query.filter(Transaction.user_id == current_user.id)
+        effective_user_id = int(current_user.id)
+    txs = query.all()
 
     rates = get_rates(base_currency)
 
@@ -230,6 +246,8 @@ def dashboard(
     expense_tx_rows.sort(key=lambda x: x.amount_base, reverse=True)
 
     return DashboardOut(
+        requested_user_id=requested_user_id,
+        effective_user_id=effective_user_id,
         totals=totals,
         by_day=days,
         income_expense_pie=income_expense_pie,

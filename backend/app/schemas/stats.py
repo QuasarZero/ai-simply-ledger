@@ -53,6 +53,8 @@ class TopTransaction(BaseModel):
 
 
 class DashboardOut(BaseModel):
+    requested_user_id: int | None = None
+    effective_user_id: int | None = None
     totals: Totals
     by_day: list[ByDay]
     income_expense_pie: list[PieSlice]

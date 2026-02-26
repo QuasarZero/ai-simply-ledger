@@ -97,5 +97,9 @@
   "active": "Active",
   "leaveEmptyToKeep": "Leave empty to keep",
   "resetPassword": "Reset password",
-  "resetPasswordTitle": "Reset Password"
+  "resetPasswordTitle": "Reset Password",
+  "global": "Global",
+  "user": "User",
+  "selectUser": "Select user",
+  "viewing": "Viewing"
 }

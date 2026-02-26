@@ -1,15 +1,16 @@
 import React, { Suspense, useEffect, useMemo, useState } from "react";
-import { Box, Paper, Stack, Tab, Tabs, Typography } from "@mui/material";
+import { Autocomplete, Box, Paper, Stack, Tab, Tabs, TextField, Typography } from "@mui/material";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
-import type { Dayjs } from "dayjs";
 import { useTranslation } from "react-i18next";
 
 import { api } from "../api/client";
-import dayjs from "../dayjs";
-import { DateRangePresets, type PresetKey } from "../components/DateRangePresets";
+import { DateRangePresets } from "../components/DateRangePresets";
 import { usePersistedDateRange } from "../hooks/usePersistedDateRange";
+import { useAuth } from "../auth/AuthContext";
 
 export type DashboardData = {
+  requested_user_id?: number | null;
+  effective_user_id?: number | null;
   totals: { income: number; expense: number; net: number; currency: string };
   by_day: { date: string; income: number; expense: number }[];
   income_expense_pie: { id: number; name: string; value: number }[];
@@ -45,6 +46,7 @@ function TabPanel({ value, index, children }: { value: number; index: number; ch
 
 export function DashboardPage() {
   const { t } = useTranslation();
+  const { me } = useAuth();
   const [data, setData] = useState<DashboardData | null>(null);
   const [tab, setTab] = useState(0);
   const { preset, setPreset, start, setStart, end, setEnd } = usePersistedDateRange(
@@ -52,13 +54,51 @@ export function DashboardPage() {
     30
   );
 
+  const isAdmin = !!me?.is_admin;
+  const [adminUsers, setAdminUsers] = useState<{ id: number; username: string; email: string; is_active: boolean }[]>(
+    []
+  );
+  const [selectedUserId, setSelectedUserId] = useState<number>(() => {
+    const raw = localStorage.getItem("dashboard:userId");
+    const n = raw ? Number(raw) : 0;
+    return Number.isFinite(n) ? n : 0;
+  });
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    api
+      .get("/admin/users")
+      .then((r) => setAdminUsers((r.data || []) as any))
+      .catch(() => setAdminUsers([]));
+  }, [isAdmin]);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    localStorage.setItem("dashboard:userId", String(selectedUserId));
+  }, [isAdmin, selectedUserId]);
+
+  const userOptions = useMemo(() => {
+    if (!isAdmin) return [];
+    const base = [{ id: 0, label: t("global") }];
+    const rest = adminUsers
+      .filter((u) => u.is_active)
+      .map((u) => ({ id: u.id, label: `${u.username} (${u.email})` }));
+    return [...base, ...rest];
+  }, [adminUsers, isAdmin, t]);
+
+  const selectedOption = useMemo(() => {
+    if (!isAdmin) return null;
+    return userOptions.find((o) => o.id === selectedUserId) || userOptions[0] || null;
+  }, [isAdmin, selectedUserId, userOptions]);
+
   const params = useMemo(
     () => ({
       start: start.format("YYYY-MM-DD"),
       end: end.format("YYYY-MM-DD"),
-      base_currency: "CNY"
+      base_currency: "CNY",
+      user_id: isAdmin ? selectedUserId : undefined
     }),
-    [start, end]
+    [start, end, isAdmin, selectedUserId]
   );
 
   useEffect(() => {
@@ -96,7 +136,23 @@ export function DashboardPage() {
               setEnd(v);
             }}
           />
+          {isAdmin ? (
+            <Autocomplete
+              options={userOptions}
+              value={selectedOption}
+              onChange={(_, v) => setSelectedUserId(v?.id ?? 0)}
+              getOptionLabel={(o) => o.label}
+              isOptionEqualToValue={(a, b) => a.id === b.id}
+              renderInput={(params) => <TextField {...params} label={t("user")} size="small" />}
+              sx={{ minWidth: 260 }}
+            />
+          ) : null}
           <Box sx={{ flexGrow: 1 }} />
+          {isAdmin ? (
+            <Typography variant="body2" sx={{ opacity: 0.75 }}>
+              {t("viewing")}: {selectedOption?.label || t("global")}
+            </Typography>
+          ) : null}
           <Typography>
             {t("income")}: {data?.totals.income?.toFixed(2) ?? "-"} {data?.totals.currency ?? "CNY"}
           </Typography>

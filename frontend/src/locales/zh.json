@@ -98,5 +98,9 @@
   "active": "启用",
   "leaveEmptyToKeep": "留空则不修改",
   "resetPassword": "重置密码",
-  "resetPasswordTitle": "重置密码"
+  "resetPasswordTitle": "重置密码",
+  "global": "全局",
+  "user": "用户",
+  "selectUser": "选择用户",
+  "viewing": "当前查看"
 }
