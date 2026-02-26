@@ -1,11 +1,15 @@
 import React, { useEffect, useState } from "react";
 import {
   Button,
+  ButtonGroup,
+  Divider,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
   FormControlLabel,
+  Menu,
+  MenuItem,
   Paper,
   Stack,
   Switch,
@@ -19,6 +23,7 @@ import {
 } from "@mui/material";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
+import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
 
 import { api } from "../api/client";
 
@@ -35,6 +40,8 @@ export function UsersPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [items, setItems] = useState<User[]>([]);
+  const [actionsAnchorEl, setActionsAnchorEl] = useState<HTMLElement | null>(null);
+  const [actionsUser, setActionsUser] = useState<User | null>(null);
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<User | null>(null);
@@ -113,6 +120,16 @@ export function UsersPage() {
     setOpenReset(true);
   }
 
+  function openActionsMenu(e: React.MouseEvent<HTMLElement>, u: User) {
+    setActionsAnchorEl(e.currentTarget);
+    setActionsUser(u);
+  }
+
+  function closeActionsMenu() {
+    setActionsAnchorEl(null);
+    setActionsUser(null);
+  }
+
   async function doReset() {
     if (!resetUser) return;
     await api.post(`/admin/users/${resetUser.id}/reset-password`, { password: resetPassword });
@@ -155,21 +172,48 @@ export function UsersPage() {
                 <TableCell>{u.is_admin ? "Y" : ""}</TableCell>
                 <TableCell>{u.is_active ? "Y" : ""}</TableCell>
                 <TableCell align="right">
-                  <Button size="small" onClick={() => openEdit(u)}>
-                    {t("edit")}
-                  </Button>
-                  <Button size="small" onClick={() => openResetDialog(u)}>
-                    {t("resetPassword")}
-                  </Button>
-                  <Button size="small" color="error" onClick={() => del(u.id)}>
-                    {t("delete")}
-                  </Button>
+                  <ButtonGroup variant="outlined" size="small">
+                    <Button onClick={() => openEdit(u)}>{t("edit")}</Button>
+                    <Button onClick={(e) => openActionsMenu(e, u)} sx={{ px: 0.5, minWidth: 36 }}>
+                      <ArrowDropDownIcon fontSize="small" />
+                    </Button>
+                  </ButtonGroup>
                 </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
       </Paper>
+
+      <Menu
+        anchorEl={actionsAnchorEl}
+        open={!!actionsAnchorEl}
+        onClose={closeActionsMenu}
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+        transformOrigin={{ vertical: "top", horizontal: "right" }}
+      >
+        <MenuItem
+          onClick={() => {
+            if (!actionsUser) return;
+            const u = actionsUser;
+            closeActionsMenu();
+            openResetDialog(u);
+          }}
+        >
+          {t("resetPassword")}
+        </MenuItem>
+        <Divider />
+        <MenuItem
+          onClick={() => {
+            if (!actionsUser) return;
+            const id = actionsUser.id;
+            closeActionsMenu();
+            del(id);
+          }}
+        >
+          {t("delete")}
+        </MenuItem>
+      </Menu>
 
       <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>{editing ? t("edit") : t("create")}</DialogTitle>
