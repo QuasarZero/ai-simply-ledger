@@ -168,35 +168,42 @@ export function AdminTransactionsPage() {
   return (
     <Stack spacing={2}>
       <Paper sx={{ p: 2 }}>
-        <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
-          <DateRangePresets
-            value={preset}
-            onChange={setPreset}
-            setStart={(d) => setStart(d)}
-            setEnd={(d) => setEnd(d)}
-          />
-          <DatePicker
-            label={t("startDate")}
-            value={start}
-            onChange={(v) => {
-              if (!v) return;
-              setPreset("custom");
-              setStart(v);
-            }}
-          />
-          <DatePicker
-            label={t("endDate")}
-            value={end}
-            onChange={(v) => {
-              if (!v) return;
-              setPreset("custom");
-              setEnd(v);
-            }}
-          />
-          <FormControlLabel
-            control={<Checkbox checked={voided} onChange={(e) => setVoided(e.target.checked)} />}
-            label={t("voided")}
-          />
+        <Box
+          component="form"
+          onSubmit={(e) => {
+            e.preventDefault();
+            applyFilters();
+          }}
+        >
+          <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
+            <DateRangePresets
+              value={preset}
+              onChange={setPreset}
+              setStart={(d) => setStart(d)}
+              setEnd={(d) => setEnd(d)}
+            />
+            <DatePicker
+              label={t("startDate")}
+              value={start}
+              onChange={(v) => {
+                if (!v) return;
+                setPreset("custom");
+                setStart(v);
+              }}
+            />
+            <DatePicker
+              label={t("endDate")}
+              value={end}
+              onChange={(v) => {
+                if (!v) return;
+                setPreset("custom");
+                setEnd(v);
+              }}
+            />
+            <FormControlLabel
+              control={<Checkbox checked={voided} onChange={(e) => setVoided(e.target.checked)} />}
+              label={t("voided")}
+            />
           {linkCategoryId ? (
             <Chip
               color="primary"
@@ -247,10 +254,11 @@ export function AdminTransactionsPage() {
             sx={{ width: 140 }}
           />
           <Box sx={{ flexGrow: 1 }} />
-          <Button variant="outlined" onClick={applyFilters}>
+          <Button variant="outlined" type="submit">
             {t("apply")}
           </Button>
-        </Stack>
+          </Stack>
+        </Box>
       </Paper>
 
       <Paper sx={{ p: 2 }}>
