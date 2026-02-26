@@ -3,13 +3,16 @@ import {
   Autocomplete,
   Box,
   Button,
+  ButtonGroup,
   Chip,
   Checkbox,
+  Divider,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
   FormControlLabel,
+  Menu,
   MenuItem,
   Paper,
   Stack,
@@ -25,6 +28,7 @@ import { createFilterOptions } from "@mui/material/Autocomplete";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import type { Dayjs } from "dayjs";
 import { useTranslation } from "react-i18next";
+import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
 
 import { api } from "../api/client";
 import dayjs from "../dayjs";
@@ -84,6 +88,8 @@ export function TransactionsPage() {
   });
   const [appliedParams, setAppliedParams] = useState<Record<string, any> | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [actionsAnchorEl, setActionsAnchorEl] = useState<HTMLElement | null>(null);
+  const [actionsTx, setActionsTx] = useState<Tx | null>(null);
 
   useEffect(() => {
     const key = "filter:transactions:voided";
@@ -149,6 +155,28 @@ export function TransactionsPage() {
     setAppliedParams(buildParams());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  function openActionsMenu(e: React.MouseEvent<HTMLElement>, tx: Tx) {
+    setActionsAnchorEl(e.currentTarget);
+    setActionsTx(tx);
+  }
+
+  function closeActionsMenu() {
+    setActionsAnchorEl(null);
+    setActionsTx(null);
+  }
+
+  function copyTx(it: Tx) {
+    setEditing(null);
+    setType(it.type);
+    setAmount(it.amount);
+    setCurrency(it.currency);
+    setOccurredAt(dayjs(it.occurred_at));
+    setNote(it.note || "");
+    setSelectedCategories(it.categories || []);
+    setSelectedTags(it.tags || []);
+    setOpen(true);
+  }
 
   function resetForm() {
     setEditing(null);
@@ -431,37 +459,57 @@ export function TransactionsPage() {
                   {it.note || ""}
                 </TableCell>
                 <TableCell align="right">
-                  <Button size="small" onClick={() => toggleVoided(it)}>
-                    {it.is_voided ? t("restore") : t("void")}
-                  </Button>
-                  <Button
-                    size="small"
-                    onClick={() => {
-                      setEditing(null);
-                      setType(it.type);
-                      setAmount(it.amount);
-                      setCurrency(it.currency);
-                      setOccurredAt(dayjs(it.occurred_at));
-                      setNote(it.note || "");
-                      setSelectedCategories(it.categories || []);
-                      setSelectedTags(it.tags || []);
-                      setOpen(true);
-                    }}
-                  >
-                    {t("copy")}
-                  </Button>
-                  <Button size="small" onClick={() => openEdit(it)}>
-                    {t("edit")}
-                  </Button>
-                  <Button color="error" size="small" onClick={() => del(it.id)}>
-                    {t("delete")}
-                  </Button>
+                  <ButtonGroup variant="outlined" size="small">
+                    <Button onClick={() => openEdit(it)}>{t("edit")}</Button>
+                    <Button onClick={(e) => openActionsMenu(e, it)} sx={{ px: 0.5, minWidth: 36 }}>
+                      <ArrowDropDownIcon fontSize="small" />
+                    </Button>
+                  </ButtonGroup>
                 </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
       </Paper>
+
+      <Menu
+        anchorEl={actionsAnchorEl}
+        open={!!actionsAnchorEl}
+        onClose={closeActionsMenu}
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+        transformOrigin={{ vertical: "top", horizontal: "right" }}
+      >
+        <MenuItem
+          onClick={() => {
+            if (!actionsTx) return;
+            copyTx(actionsTx);
+            closeActionsMenu();
+          }}
+        >
+          {t("copy")}
+        </MenuItem>
+        <Divider />
+        <MenuItem
+          onClick={() => {
+            if (!actionsTx) return;
+            const tx = actionsTx;
+            closeActionsMenu();
+            toggleVoided(tx);
+          }}
+        >
+          {actionsTx?.is_voided ? t("restore") : t("void")}
+        </MenuItem>
+        <MenuItem
+          onClick={() => {
+            if (!actionsTx) return;
+            const id = actionsTx.id;
+            closeActionsMenu();
+            del(id);
+          }}
+        >
+          {t("delete")}
+        </MenuItem>
+      </Menu>
 
       <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>{editing ? t("edit") : t("create")}</DialogTitle>
