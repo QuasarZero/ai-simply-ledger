@@ -51,6 +51,19 @@ export function AppLayout({
     return base;
   }, [me?.is_admin, t]);
 
+  const pageTitle = useMemo(() => {
+    // Use longest match so "/admin/transactions" wins over "/" etc.
+    const match = [...items]
+      .sort((a, b) => b.to.length - a.to.length)
+      .find((it) => (it.to === "/" ? location.pathname === "/" : location.pathname.startsWith(it.to)));
+    return match?.label || "";
+  }, [items, location.pathname]);
+
+  React.useEffect(() => {
+    const app = t("appTitle");
+    document.title = pageTitle ? `${pageTitle} | ${app}` : app;
+  }, [pageTitle, t]);
+
   function go(to: string) {
     navigate(to);
     setOpen(false);

@@ -1,6 +1,7 @@
 {
-  "appTitle": "收支记账",
+  "appTitle": "简易记账系统",
   "login": "登录",
+  "loginTitle": "登录简易记账系统",
   "logout": "退出登录",
   "usernameOrEmail": "用户名或邮箱",
   "password": "密码",

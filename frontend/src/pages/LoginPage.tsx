@@ -24,6 +24,10 @@ export function LoginPage() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    document.title = `${t("loginTitle")} | ${t("appTitle")}`;
+  }, [t]);
+
+  useEffect(() => {
     if (token) navigate("/", { replace: true });
   }, [token, navigate]);
 
@@ -45,7 +49,7 @@ export function LoginPage() {
     <Container maxWidth="sm" sx={{ mt: 10 }}>
       <Paper sx={{ p: 4 }}>
         <Stack spacing={2}>
-          <Typography variant="h5">{t("login")}</Typography>
+          <Typography variant="h5">{t("loginTitle")}</Typography>
           {error ? <Alert severity="error">{String(error)}</Alert> : null}
           <Box component="form" onSubmit={onSubmit}>
             <Stack spacing={2}>

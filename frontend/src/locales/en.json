@@ -1,6 +1,7 @@
 {
-  "appTitle": "Expense / Income",
+  "appTitle": "Simply Ledger",
   "login": "Login",
+  "loginTitle": "Login to Simply Ledger",
   "logout": "Logout",
   "usernameOrEmail": "Username or Email",
   "password": "Password",
