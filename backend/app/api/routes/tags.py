@@ -13,7 +13,7 @@ router = APIRouter(prefix="/tags")
 
 
 @router.get("", response_model=list[TagOut])
-def list_tags(db: Session = Depends(get_db)):
+def list_tags(db: Session = Depends(get_db), _: User = Depends(get_current_user)):
     rows = (
         db.query(
             Tag.id,
@@ -46,7 +46,7 @@ def create_tag(payload: TagCreate, db: Session = Depends(get_db), _: User = Depe
 
 
 @router.patch("/{tag_id}", response_model=TagOut)
-def update_tag(tag_id: int, payload: TagUpdate, db: Session = Depends(get_db)):
+def update_tag(tag_id: int, payload: TagUpdate, db: Session = Depends(get_db), _: User = Depends(get_current_user)):
     t = db.query(Tag).filter(Tag.id == tag_id).first()
     if not t:
         raise HTTPException(status_code=404, detail="Not found")
@@ -66,7 +66,7 @@ def update_tag(tag_id: int, payload: TagUpdate, db: Session = Depends(get_db)):
 
 
 @router.delete("/{tag_id}")
-def delete_tag(tag_id: int, db: Session = Depends(get_db)):
+def delete_tag(tag_id: int, db: Session = Depends(get_db), _: User = Depends(get_current_user)):
     t = db.query(Tag).filter(Tag.id == tag_id).first()
     if not t:
         raise HTTPException(status_code=404, detail="Not found")

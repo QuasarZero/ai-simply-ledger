@@ -65,14 +65,6 @@ export default function App() {
                   }
                 />
                 <Route
-                  path="admin/tags"
-                  element={
-                    <AdminRoute>
-                      <TagsPage />
-                    </AdminRoute>
-                  }
-                />
-                <Route
                   path="admin/users"
                   element={
                     <AdminRoute>

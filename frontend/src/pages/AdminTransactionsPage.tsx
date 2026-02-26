@@ -230,7 +230,7 @@ export function AdminTransactionsPage() {
             sx={{ width: 140 }}
           />
           <TextField
-            label="User ID"
+            label={t("userId")}
             value={userId}
             onChange={(e) => setUserId(e.target.value)}
             size="small"

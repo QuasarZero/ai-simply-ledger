@@ -129,7 +129,7 @@ export function TagsPage() {
         <DialogTitle>{editing ? t("edit") : t("create")}</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
-            <TextField label="Name" value={name} onChange={(e) => setName(e.target.value)} />
+            <TextField label={t("name")} value={name} onChange={(e) => setName(e.target.value)} />
           </Stack>
         </DialogContent>
         <DialogActions>

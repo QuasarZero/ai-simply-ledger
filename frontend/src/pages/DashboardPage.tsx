@@ -118,7 +118,7 @@ export function DashboardPage() {
         </Tabs>
       </Paper>
 
-      <Suspense fallback={<Paper sx={{ p: 2 }}>Loading…</Paper>}>
+      <Suspense fallback={<Paper sx={{ p: 2 }}>{t("loading")}</Paper>}>
         <TabPanel value={tab} index={0}>
           <OverviewTab data={data} />
         </TabPanel>

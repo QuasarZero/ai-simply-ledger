@@ -16,6 +16,7 @@ import { useTranslation } from "react-i18next";
 import type { DashboardData } from "../DashboardPage";
 
 function TopTable({ title, rows }: { title: string; rows: { name: string; value: number }[] }) {
+  const { t } = useTranslation();
   return (
     <Paper sx={{ p: 2 }}>
       <Typography variant="subtitle1" sx={{ mb: 1 }}>
@@ -24,8 +25,8 @@ function TopTable({ title, rows }: { title: string; rows: { name: string; value:
       <Table size="small">
         <TableHead>
           <TableRow>
-            <TableCell>Name</TableCell>
-            <TableCell align="right">Value</TableCell>
+            <TableCell>{t("name")}</TableCell>
+            <TableCell align="right">{t("value")}</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>

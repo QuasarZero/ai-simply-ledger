@@ -12,13 +12,20 @@ export function ProfilePage() {
   const [email, setEmail] = useState(me?.email || "");
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
+  const [newPassword2, setNewPassword2] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  const mismatch = newPassword.length > 0 && newPassword2.length > 0 && newPassword !== newPassword2;
+
   async function save() {
     setMsg(null);
     setErr(null);
+    if (mismatch) {
+      setErr(t("passwordMismatch"));
+      return;
+    }
     setSaving(true);
     try {
       await api.patch("/me", {
@@ -29,6 +36,7 @@ export function ProfilePage() {
       setMsg(t("saved"));
       setCurrentPassword("");
       setNewPassword("");
+      setNewPassword2("");
       await refreshMe();
     } catch (e: any) {
       setErr(e?.response?.data?.detail || e?.message || "Failed");
@@ -63,7 +71,15 @@ export function ProfilePage() {
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
           />
-          <Button variant="contained" onClick={save} disabled={saving || !currentPassword}>
+          <TextField
+            label={t("newPassword2")}
+            type="password"
+            value={newPassword2}
+            onChange={(e) => setNewPassword2(e.target.value)}
+            error={mismatch}
+            helperText={mismatch ? t("passwordMismatch") : ""}
+          />
+          <Button variant="contained" onClick={save} disabled={saving || !currentPassword || mismatch}>
             {t("save")}
           </Button>
         </Stack>
@@ -71,4 +87,3 @@ export function ProfilePage() {
     </Stack>
   );
 }
-

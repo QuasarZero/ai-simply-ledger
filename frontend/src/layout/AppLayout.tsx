@@ -46,7 +46,6 @@ export function AppLayout({
     if (me?.is_admin) {
       base.push({ to: "/admin/transactions", label: t("adminTransactions") });
       base.push({ to: "/admin/categories", label: t("categories") });
-      base.push({ to: "/admin/tags", label: t("tags") });
       base.push({ to: "/admin/users", label: t("users") });
     }
     return base;

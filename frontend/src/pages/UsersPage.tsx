@@ -137,10 +137,10 @@ export function UsersPage() {
           <TableHead>
             <TableRow>
               <TableCell>ID</TableCell>
-              <TableCell>Email</TableCell>
-              <TableCell>Username</TableCell>
-              <TableCell>Admin</TableCell>
-              <TableCell>Active</TableCell>
+              <TableCell>{t("email")}</TableCell>
+              <TableCell>{t("username")}</TableCell>
+              <TableCell>{t("admin")}</TableCell>
+              <TableCell>{t("active")}</TableCell>
               <TableCell />
             </TableRow>
           </TableHead>
@@ -161,7 +161,7 @@ export function UsersPage() {
                     {t("edit")}
                   </Button>
                   <Button size="small" onClick={() => openResetDialog(u)}>
-                    Reset PW
+                    {t("resetPassword")}
                   </Button>
                   <Button size="small" color="error" onClick={() => del(u.id)}>
                     {t("delete")}
@@ -177,22 +177,22 @@ export function UsersPage() {
         <DialogTitle>{editing ? t("edit") : t("create")}</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
-            <TextField label="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
-            <TextField label="Username" value={username} onChange={(e) => setUsername(e.target.value)} />
+            <TextField label={t("email")} value={email} onChange={(e) => setEmail(e.target.value)} />
+            <TextField label={t("username")} value={username} onChange={(e) => setUsername(e.target.value)} />
             <TextField
-              label="Password"
+              label={t("password")}
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              helperText={editing ? "Leave empty to keep" : ""}
+              helperText={editing ? t("leaveEmptyToKeep") : ""}
             />
             <FormControlLabel
               control={<Switch checked={isAdmin} onChange={(e) => setIsAdmin(e.target.checked)} />}
-              label="Admin"
+              label={t("admin")}
             />
             <FormControlLabel
               control={<Switch checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />}
-              label="Active"
+              label={t("active")}
             />
           </Stack>
         </DialogContent>
@@ -205,12 +205,12 @@ export function UsersPage() {
       </Dialog>
 
       <Dialog open={openReset} onClose={() => setOpenReset(false)} maxWidth="xs" fullWidth>
-        <DialogTitle>Reset Password</DialogTitle>
+        <DialogTitle>{t("resetPasswordTitle")}</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
             <Typography>{resetUser ? `${resetUser.username} (#${resetUser.id})` : ""}</Typography>
             <TextField
-              label="New password"
+              label={t("newPassword")}
               type="password"
               value={resetPassword}
               onChange={(e) => setResetPassword(e.target.value)}

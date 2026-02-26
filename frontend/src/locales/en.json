@@ -86,5 +86,16 @@
   "email": "Email",
   "currentPassword": "Current password",
   "newPassword": "New password",
-  "saved": "Saved"
+  "newPassword2": "Confirm new password",
+  "passwordMismatch": "Passwords do not match",
+  "saved": "Saved",
+  "name": "Name",
+  "value": "Value",
+  "loading": "Loading…",
+  "userId": "User ID",
+  "admin": "Admin",
+  "active": "Active",
+  "leaveEmptyToKeep": "Leave empty to keep",
+  "resetPassword": "Reset password",
+  "resetPasswordTitle": "Reset Password"
 }

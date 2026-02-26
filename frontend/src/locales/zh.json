@@ -87,5 +87,16 @@
   "email": "邮箱",
   "currentPassword": "当前密码",
   "newPassword": "新密码",
-  "saved": "已保存"
+  "newPassword2": "重复新密码",
+  "passwordMismatch": "两次输入的新密码不一致",
+  "saved": "已保存",
+  "name": "名称",
+  "value": "数值",
+  "loading": "加载中…",
+  "userId": "用户ID",
+  "admin": "管理员",
+  "active": "启用",
+  "leaveEmptyToKeep": "留空则不修改",
+  "resetPassword": "重置密码",
+  "resetPasswordTitle": "重置密码"
 }
