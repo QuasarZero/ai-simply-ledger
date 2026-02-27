@@ -28,6 +28,7 @@
   "currency": "通貨",
   "occurredAt": "日付",
   "type": "種類",
+  "all": "すべて",
   "search": "検索",
   "trend": "推移",
   "incomeVsExpense": "収入 vs 支出",

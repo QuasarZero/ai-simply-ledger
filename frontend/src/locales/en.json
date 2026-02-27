@@ -28,6 +28,7 @@
   "currency": "Currency",
   "occurredAt": "Date",
   "type": "Type",
+  "all": "All",
   "search": "Search",
   "trend": "Trend",
   "incomeVsExpense": "Income vs Expense",

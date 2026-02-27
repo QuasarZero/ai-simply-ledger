@@ -60,6 +60,7 @@ export function AdminTransactionsPage() {
     30
   );
   const [voided, setVoided] = useState(false);
+  const [typeFilter, setTypeFilter] = useState<"all" | "expense" | "income">("all");
   const [minAmount, setMinAmount] = useState<string>("");
   const [maxAmount, setMaxAmount] = useState<string>("");
   const [linkUserId, setLinkUserId] = useState<number | null>(() => {
@@ -114,6 +115,7 @@ export function AdminTransactionsPage() {
       user_id: linkUserId ?? undefined,
       voided: voided ? true : undefined
     };
+    if (typeFilter !== "all") p.type = typeFilter;
     const min = minAmount.trim();
     const max = maxAmount.trim();
     if (min !== "" && !Number.isNaN(Number(min))) p.min_amount = Number(min);
@@ -249,6 +251,18 @@ export function AdminTransactionsPage() {
               control={<Checkbox checked={voided} onChange={(e) => setVoided(e.target.checked)} />}
               label={t("voided")}
             />
+            <TextField
+              select
+              label={t("type")}
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value as any)}
+              size="small"
+              sx={{ width: 160 }}
+            >
+              <MenuItem value="all">{t("all")}</MenuItem>
+              <MenuItem value="expense">{t("expense")}</MenuItem>
+              <MenuItem value="income">{t("income")}</MenuItem>
+            </TextField>
             {linkUserId ? (
               <Chip
                 color="info"
@@ -385,7 +399,14 @@ export function AdminTransactionsPage() {
                       : userLabelById.get(it.user_id) ?? `#${it.user_id}`}
                   </TableCell>
                   <TableCell>{dayjs(it.occurred_at).format("YYYY-MM-DD")}</TableCell>
-                  <TableCell>{it.type === "income" ? t("income") : t("expense")}</TableCell>
+                  <TableCell>
+                    <Typography
+                      component="span"
+                      sx={{ color: it.type === "income" ? "#2e7d32" : "#d32f2f", fontSize: "13px" }}
+                    >
+                      {it.type === "income" ? t("income") : t("expense")}
+                    </Typography>
+                  </TableCell>
                   <TableCell align="right">{it.amount.toFixed(2)}</TableCell>
                   <TableCell align="left">{it.currency}</TableCell>
                   <TableCell>

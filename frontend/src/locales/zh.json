@@ -28,6 +28,7 @@
   "currency": "货币",
   "occurredAt": "日期",
   "type": "类型",
+  "all": "全部",
   "search": "搜索",
   "trend": "趋势",
   "incomeVsExpense": "收入 vs 支出",
