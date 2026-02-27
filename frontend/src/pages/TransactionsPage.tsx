@@ -39,6 +39,7 @@ import { DateRangePresets } from "../components/DateRangePresets";
 import { usePersistedDateRange } from "../hooks/usePersistedDateRange";
 import { useConfirm } from "../hooks/useConfirm";
 import { useSearchParams } from "react-router-dom";
+import { safeParseJson } from "../storage";
 
 type Category = { id: number; name: string; description?: string | null };
 type Tag = { id: number; name: string; used_count?: number };
@@ -70,6 +71,7 @@ function stableSort<T>(arr: T[], cmp: (a: T, b: T) => number): T[] {
 
 const currencies = ["CNY", "USD", "EUR", "JPY", "HKD", "GBP"];
 const tagFilter = createFilterOptions<TagOption>();
+const STORAGE_KEY = "pageState:transactions";
 
 type TagOption =
   | Tag
@@ -86,40 +88,84 @@ export function TransactionsPage() {
   const [items, setItems] = useState<Tx[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
+  const persisted = useMemo(() => safeParseJson<Record<string, any>>(STORAGE_KEY) || {}, []);
 
   const { preset, setPreset, start, setStart, end, setEnd } = usePersistedDateRange(
     "dateRange:transactions",
     30
   );
-  const [voided, setVoided] = useState(false);
-  const [typeFilter, setTypeFilter] = useState<"all" | "expense" | "income">("all");
-  const [q, setQ] = useState<string>("");
-  const [minAmount, setMinAmount] = useState<string>("");
-  const [maxAmount, setMaxAmount] = useState<string>("");
+  const [voided, setVoided] = useState<boolean>(() => (typeof persisted.voided === "boolean" ? persisted.voided : false));
+  const [typeFilter, setTypeFilter] = useState<"all" | "expense" | "income">(() => {
+    const v = persisted.typeFilter;
+    return v === "expense" || v === "income" || v === "all" ? v : "all";
+  });
+  const [q, setQ] = useState<string>(() => (typeof persisted.q === "string" ? persisted.q : ""));
+  const [minAmount, setMinAmount] = useState<string>(() => (typeof persisted.minAmount === "string" ? persisted.minAmount : ""));
+  const [maxAmount, setMaxAmount] = useState<string>(() => (typeof persisted.maxAmount === "string" ? persisted.maxAmount : ""));
   const [linkCategoryId, setLinkCategoryId] = useState<number | null>(() => {
     const v = searchParams.get("categoryId");
-    return v && !Number.isNaN(Number(v)) ? Number(v) : null;
+    if (v && !Number.isNaN(Number(v))) return Number(v);
+    const persistedId = persisted.linkCategoryId;
+    return typeof persistedId === "number" && Number.isFinite(persistedId) ? persistedId : null;
   });
   const [linkTagId, setLinkTagId] = useState<number | null>(() => {
     const v = searchParams.get("tagId");
-    return v && !Number.isNaN(Number(v)) ? Number(v) : null;
+    if (v && !Number.isNaN(Number(v))) return Number(v);
+    const persistedId = persisted.linkTagId;
+    return typeof persistedId === "number" && Number.isFinite(persistedId) ? persistedId : null;
   });
   const [appliedParams, setAppliedParams] = useState<Record<string, any> | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [actionsAnchorEl, setActionsAnchorEl] = useState<HTMLElement | null>(null);
   const [actionsTx, setActionsTx] = useState<Tx | null>(null);
-  const [sortKey, setSortKey] = useState<SortKey>("occurred_at");
-  const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [sortKey, setSortKey] = useState<SortKey>(() => {
+    const v = persisted.sortKey;
+    const keys: SortKey[] = ["occurred_at", "type", "amount", "currency", "categories", "tags", "note"];
+    return typeof v === "string" && keys.includes(v as SortKey) ? (v as SortKey) : "occurred_at";
+  });
+  const [sortDir, setSortDir] = useState<SortDir>(() => (persisted.sortDir === "asc" || persisted.sortDir === "desc" ? persisted.sortDir : "desc"));
 
   useEffect(() => {
-    const key = "filter:transactions:voided";
-    const saved = localStorage.getItem(key);
-    if (saved === "true") setVoided(true);
-  }, []);
+    const payload = {
+      voided,
+      typeFilter,
+      q,
+      minAmount,
+      maxAmount,
+      linkCategoryId,
+      linkTagId,
+      sortKey,
+      sortDir
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+  }, [voided, typeFilter, q, minAmount, maxAmount, linkCategoryId, linkTagId, sortKey, sortDir]);
 
   useEffect(() => {
-    localStorage.setItem("filter:transactions:voided", voided ? "true" : "false");
-  }, [voided]);
+    const next = new URLSearchParams(searchParams);
+    let changed = false;
+
+    if (linkCategoryId) {
+      if (next.get("categoryId") !== String(linkCategoryId)) {
+        next.set("categoryId", String(linkCategoryId));
+        changed = true;
+      }
+    } else if (next.has("categoryId")) {
+      next.delete("categoryId");
+      changed = true;
+    }
+
+    if (linkTagId) {
+      if (next.get("tagId") !== String(linkTagId)) {
+        next.set("tagId", String(linkTagId));
+        changed = true;
+      }
+    } else if (next.has("tagId")) {
+      next.delete("tagId");
+      changed = true;
+    }
+
+    if (changed) setSearchParams(next, { replace: true });
+  }, [linkCategoryId, linkTagId, searchParams, setSearchParams]);
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Tx | null>(null);

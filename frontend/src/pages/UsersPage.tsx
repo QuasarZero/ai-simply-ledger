@@ -28,6 +28,7 @@ import { useNavigate } from "react-router-dom";
 import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
 
 import { api } from "../api/client";
+import { safeParseJson } from "../storage";
 
 type User = {
   id: number;
@@ -39,6 +40,7 @@ type User = {
 };
 type SortDir = "asc" | "desc";
 type SortKey = "email" | "username" | "is_admin" | "is_active";
+const STORAGE_KEY = "pageState:users";
 
 function stableSort<T>(arr: T[], cmp: (a: T, b: T) => number): T[] {
   return arr
@@ -54,9 +56,13 @@ export function UsersPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [items, setItems] = useState<User[]>([]);
-  const [q, setQ] = useState<string>("");
-  const [sortKey, setSortKey] = useState<SortKey>("username");
-  const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const persisted = useMemo(() => safeParseJson<Record<string, any>>(STORAGE_KEY) || {}, []);
+  const [q, setQ] = useState<string>(() => (typeof persisted.q === "string" ? persisted.q : ""));
+  const [sortKey, setSortKey] = useState<SortKey>(() => {
+    const v = persisted.sortKey;
+    return v === "email" || v === "username" || v === "is_admin" || v === "is_active" ? v : "username";
+  });
+  const [sortDir, setSortDir] = useState<SortDir>(() => (persisted.sortDir === "asc" || persisted.sortDir === "desc" ? persisted.sortDir : "asc"));
   const [actionsAnchorEl, setActionsAnchorEl] = useState<HTMLElement | null>(null);
   const [actionsUser, setActionsUser] = useState<User | null>(null);
 
@@ -77,6 +83,11 @@ export function UsersPage() {
     const res = await api.get("/admin/users");
     setItems(res.data as User[]);
   }
+
+  useEffect(() => {
+    const payload = { q, sortKey, sortDir };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+  }, [q, sortKey, sortDir]);
 
   useEffect(() => {
     load().catch(() => {});

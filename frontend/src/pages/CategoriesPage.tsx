@@ -22,10 +22,12 @@ import { useNavigate } from "react-router-dom";
 import { api } from "../api/client";
 import { useConfirm } from "../hooks/useConfirm";
 import { useAuth } from "../auth/AuthContext";
+import { safeParseJson } from "../storage";
 
 type Category = { id: number; name: string; description?: string | null };
 type SortDir = "asc" | "desc";
 type SortKey = "name" | "description";
+const STORAGE_KEY = "pageState:categories";
 
 function stableSort<T>(arr: T[], cmp: (a: T, b: T) => number): T[] {
   return arr
@@ -43,9 +45,13 @@ export function CategoriesPage() {
   const { confirm, dialog } = useConfirm();
   const { me } = useAuth();
   const [items, setItems] = useState<Category[]>([]);
-  const [q, setQ] = useState<string>("");
-  const [sortKey, setSortKey] = useState<SortKey>("name");
-  const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const persisted = useMemo(() => safeParseJson<Record<string, any>>(STORAGE_KEY) || {}, []);
+  const [q, setQ] = useState<string>(() => (typeof persisted.q === "string" ? persisted.q : ""));
+  const [sortKey, setSortKey] = useState<SortKey>(() => {
+    const v = persisted.sortKey;
+    return v === "name" || v === "description" ? v : "name";
+  });
+  const [sortDir, setSortDir] = useState<SortDir>(() => (persisted.sortDir === "asc" || persisted.sortDir === "desc" ? persisted.sortDir : "asc"));
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Category | null>(null);
   const [name, setName] = useState("");
@@ -59,6 +65,11 @@ export function CategoriesPage() {
   useEffect(() => {
     load().catch(() => {});
   }, []);
+
+  useEffect(() => {
+    const payload = { q, sortKey, sortDir };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+  }, [q, sortKey, sortDir]);
 
   function openCreate() {
     setEditing(null);
