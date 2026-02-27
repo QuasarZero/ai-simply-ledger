@@ -38,6 +38,7 @@
   "tagShareCount": "タグ比率（件数）",
   "top10": "トップ 10",
   "top10ExpenseTx": "支出取引トップ 10",
+  "top10IncomeTx": "収入取引トップ 10",
   "topCategoriesExpenseAmount": "カテゴリ（支出金額）トップ 10",
   "topTagsExpenseAmount": "タグ（支出金額）トップ 10",
   "topCategoriesCount": "カテゴリ（件数）トップ 10",

@@ -29,6 +29,16 @@ export type DashboardData = {
     categories: string[];
     tags: string[];
   }[];
+  top_income_transactions: {
+    id: number;
+    occurred_at: string;
+    amount_base: number;
+    currency: string;
+    amount_raw: number;
+    note?: string | null;
+    categories: string[];
+    tags: string[];
+  }[];
   top_expense_categories_amount: { id: number; name: string; value: number }[];
   top_expense_tags_amount: { id: number; name: string; value: number }[];
   top_categories_count: { id: number; name: string; value: number }[];

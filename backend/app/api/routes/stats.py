@@ -195,6 +195,7 @@ def dashboard(
     tag_names: dict[int, str] = {0: "No Tag"}
 
     expense_tx_rows: list[TopTransaction] = []
+    income_tx_rows: list[TopTransaction] = []
 
     for tx in txs:
         amt_base = convert_amount(float(tx.amount), tx.currency, base_currency, rates)
@@ -203,6 +204,18 @@ def dashboard(
         if tx.type == "income":
             totals_income += amt_base
             by_day[day_key]["income"] += amt_base
+            income_tx_rows.append(
+                TopTransaction(
+                    id=tx.id,
+                    occurred_at=tx.occurred_at.isoformat(),
+                    amount_base=float(amt_base),
+                    currency=tx.currency,
+                    amount_raw=float(tx.amount),
+                    note=tx.note,
+                    categories=[c.name for c in tx.categories] or [cat_names[0]],
+                    tags=[t.name for t in tx.tags] or [tag_names[0]],
+                )
+            )
         else:
             totals_expense += amt_base
             by_day[day_key]["expense"] += amt_base
@@ -252,6 +265,7 @@ def dashboard(
     ]
 
     expense_tx_rows.sort(key=lambda x: x.amount_base, reverse=True)
+    income_tx_rows.sort(key=lambda x: x.amount_base, reverse=True)
 
     return DashboardOut(
         requested_user_id=requested_user_id,
@@ -264,6 +278,7 @@ def dashboard(
         tag_pie_amount=_to_pie(tag_amount, tag_names),
         tag_pie_count=_to_pie(tag_count, tag_names),
         top_expense_transactions=expense_tx_rows[:10],
+        top_income_transactions=income_tx_rows[:10],
         top_expense_categories_amount=_top_items(cat_amount, cat_names, limit=10),
         top_expense_tags_amount=_top_items(tag_amount, tag_names, limit=10),
         top_categories_count=_top_items(cat_count, cat_names, limit=10),

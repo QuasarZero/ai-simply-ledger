@@ -64,7 +64,48 @@ export function Top10ExpenseTransactions({ data }: { data: DashboardData | null 
             {(data?.top_expense_transactions ?? []).map((x) => (
               <TableRow key={x.id}>
                 <TableCell>{dayjs(x.occurred_at).format("YYYY-MM-DD")}</TableCell>
-                <TableCell align="right">{x.amount_base.toFixed(2)}</TableCell>
+                <TableCell align="right">-{x.amount_base.toFixed(2)}</TableCell>
+                <TableCell>{x.currency}</TableCell>
+                <TableCell>{(x.categories || []).join(", ")}</TableCell>
+                <TableCell>{(x.tags || []).join(", ")}</TableCell>
+                <TableCell sx={{ maxWidth: 260, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  {x.note || ""}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
+    </Paper>
+  );
+}
+
+export function Top10IncomeTransactions({ data }: { data: DashboardData | null }) {
+  const { t } = useTranslation();
+  return (
+    <Paper sx={{ p: 2 }}>
+      <Typography variant="subtitle1" sx={{ mb: 1 }}>
+        {t("top10IncomeTx")}
+      </Typography>
+      <TableContainer sx={{ overflowX: "auto" }}>
+        <Table size="small" sx={{ tableLayout: "fixed" }}>
+          <TableHead>
+            <TableRow>
+              <TableCell sx={{ width: 110 }}>{t("occurredAt")}</TableCell>
+              <TableCell align="right" sx={{ width: 100 }}>
+                {t("amount")}
+              </TableCell>
+              <TableCell sx={{ width: 70 }}>{t("currency")}</TableCell>
+              <TableCell sx={{ width: 150 }}>{t("categories")}</TableCell>
+              <TableCell sx={{ width: 400 }}>{t("tags")}</TableCell>
+              <TableCell sx={{ width: 400 }}>{t("note")}</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {(data?.top_income_transactions ?? []).map((x) => (
+              <TableRow key={x.id}>
+                <TableCell>{dayjs(x.occurred_at).format("YYYY-MM-DD")}</TableCell>
+                <TableCell align="right">+{x.amount_base.toFixed(2)}</TableCell>
                 <TableCell>{x.currency}</TableCell>
                 <TableCell>{(x.categories || []).join(", ")}</TableCell>
                 <TableCell>{(x.tags || []).join(", ")}</TableCell>

@@ -38,6 +38,7 @@
   "tagShareCount": "标签占比（次数）",
   "top10": "Top 10",
   "top10ExpenseTx": "最高花费记录 Top 10",
+  "top10IncomeTx": "最高收入记录 Top 10",
   "topCategoriesExpenseAmount": "分类最高花费 Top 10",
   "topTagsExpenseAmount": "标签最高花费 Top 10",
   "topCategoriesCount": "分类出现次数 Top 10",

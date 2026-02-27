@@ -63,6 +63,7 @@ class DashboardOut(BaseModel):
     tag_pie_amount: list[PieSlice]
     tag_pie_count: list[PieSlice]
     top_expense_transactions: list[TopTransaction]
+    top_income_transactions: list[TopTransaction]
     top_expense_categories_amount: list[TopItem]
     top_expense_tags_amount: list[TopItem]
     top_categories_count: list[TopItem]
