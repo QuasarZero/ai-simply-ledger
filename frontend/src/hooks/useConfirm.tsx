@@ -1,4 +1,3 @@
-import * as React from "react";
 import { useCallback, useState } from "react";
 import { Button, Dialog, DialogActions, DialogContent, DialogTitle, Typography } from "@mui/material";
 import { useTranslation } from "react-i18next";
@@ -50,3 +49,4 @@ export function useConfirm() {
 
   return { confirm, dialog };
 }
+
