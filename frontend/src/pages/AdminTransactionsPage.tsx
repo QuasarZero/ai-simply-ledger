@@ -12,6 +12,7 @@ import {
   Table,
   TableBody,
   TableCell,
+  TableContainer,
   TableHead,
   TableRow,
   Menu,
@@ -333,98 +334,100 @@ export function AdminTransactionsPage() {
             </Stack>
           ) : null}
         </Stack>
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell padding="checkbox">
-                <Checkbox
-                  checked={items.length > 0 && items.every((x) => selectedIds.has(x.id))}
-                  indeterminate={
-                    selectedIds.size > 0 &&
-                    items.some((x) => selectedIds.has(x.id)) &&
-                    !items.every((x) => selectedIds.has(x.id))
-                  }
-                  onChange={(e) => {
-                    if (e.target.checked) setSelectedIds(new Set(items.map((x) => x.id)));
-                    else setSelectedIds(new Set());
-                  }}
-                />
-              </TableCell>
-              <TableCell>User</TableCell>
-              <TableCell>{t("occurredAt")}</TableCell>
-              <TableCell>{t("type")}</TableCell>
-              <TableCell>{t("amount")}</TableCell>
-              <TableCell>{t("currency")}</TableCell>
-              <TableCell>{t("categories")}</TableCell>
-              <TableCell>{t("tags")}</TableCell>
-              <TableCell>{t("note")}</TableCell>
-              <TableCell />
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {items.map((it) => (
-              <TableRow key={it.id}>
+        <TableContainer sx={{ overflowX: "auto" }}>
+          <Table size="small" sx={{ tableLayout: "fixed" }}>
+            <TableHead>
+              <TableRow>
                 <TableCell padding="checkbox">
                   <Checkbox
-                    checked={selectedIds.has(it.id)}
+                    checked={items.length > 0 && items.every((x) => selectedIds.has(x.id))}
+                    indeterminate={
+                      selectedIds.size > 0 &&
+                      items.some((x) => selectedIds.has(x.id)) &&
+                      !items.every((x) => selectedIds.has(x.id))
+                    }
                     onChange={(e) => {
-                      setSelectedIds((prev) => {
-                        const next = new Set(prev);
-                        if (e.target.checked) next.add(it.id);
-                        else next.delete(it.id);
-                        return next;
-                      });
+                      if (e.target.checked) setSelectedIds(new Set(items.map((x) => x.id)));
+                      else setSelectedIds(new Set());
                     }}
                   />
                 </TableCell>
-                <TableCell>
-                  {it.user
-                    ? `${it.user.username} (${it.user.email})`
-                    : userLabelById.get(it.user_id) ?? `#${it.user_id}`}
-                </TableCell>
-                <TableCell>{dayjs(it.occurred_at).format("YYYY-MM-DD")}</TableCell>
-                <TableCell>{it.type === "income" ? t("income") : t("expense")}</TableCell>
-                <TableCell>{it.amount.toFixed(2)}</TableCell>
-                <TableCell>{it.currency}</TableCell>
-                <TableCell>
-                  {(it.categories || []).map((c) => (
-                    <Chip
-                      key={c.id}
-                      label={c.name}
-                      size="small"
-                      clickable
-                      onClick={() => applyLinkedCategory(c.id)}
-                      sx={{ mr: 0.5, mb: 0.5 }}
-                    />
-                  ))}
-                </TableCell>
-                <TableCell>
-                  {(it.tags || []).map((x) => (
-                    <Chip
-                      key={x.id}
-                      label={x.name}
-                      size="small"
-                      clickable
-                      onClick={() => applyLinkedTag(x.id)}
-                      sx={{ mr: 0.5, mb: 0.5 }}
-                    />
-                  ))}
-                </TableCell>
-                <TableCell sx={{ maxWidth: 220, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                  {it.note || ""}
-                </TableCell>
-                <TableCell align="right">
-                  <ButtonGroup variant="outlined" size="small">
-                    <Button onClick={() => toggleVoided(it)}>{it.is_voided ? t("restore") : t("void")}</Button>
-                    <Button onClick={(e) => openActionsMenu(e, it)} sx={{ px: 0.5, minWidth: 36 }}>
-                      <ArrowDropDownIcon fontSize="small" />
-                    </Button>
-                  </ButtonGroup>
-                </TableCell>
+                <TableCell sx={{width: 300}}>{t("user")}</TableCell>
+                <TableCell sx={{width: 110}}>{t("occurredAt")}</TableCell>
+                <TableCell sx={{width: 70}}>{t("type")}</TableCell>
+                <TableCell align="right" sx={{width: 100}}>{t("amount")}</TableCell>
+                <TableCell align="left" sx={{width: 70}}>{t("currency")}</TableCell>
+                <TableCell sx={{width: 150}}>{t("categories")}</TableCell>
+                <TableCell sx={{width: 400}}>{t("tags")}</TableCell>
+                <TableCell sx={{width: 400}}>{t("note")}</TableCell>
+                <TableCell sx={{width: 120}}>{t("actions")}</TableCell>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHead>
+            <TableBody>
+              {items.map((it) => (
+                <TableRow key={it.id}>
+                  <TableCell padding="checkbox">
+                    <Checkbox
+                      checked={selectedIds.has(it.id)}
+                      onChange={(e) => {
+                        setSelectedIds((prev) => {
+                          const next = new Set(prev);
+                          if (e.target.checked) next.add(it.id);
+                          else next.delete(it.id);
+                          return next;
+                        });
+                      }}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    {it.user
+                      ? `${it.user.username} (${it.user.email})`
+                      : userLabelById.get(it.user_id) ?? `#${it.user_id}`}
+                  </TableCell>
+                  <TableCell>{dayjs(it.occurred_at).format("YYYY-MM-DD")}</TableCell>
+                  <TableCell>{it.type === "income" ? t("income") : t("expense")}</TableCell>
+                  <TableCell align="right">{it.amount.toFixed(2)}</TableCell>
+                  <TableCell align="left">{it.currency}</TableCell>
+                  <TableCell>
+                    {(it.categories || []).map((c) => (
+                      <Chip
+                        key={c.id}
+                        label={c.name}
+                        size="small"
+                        clickable
+                        onClick={() => applyLinkedCategory(c.id)}
+                        sx={{ mr: 0.5, mb: 0.5 }}
+                      />
+                    ))}
+                  </TableCell>
+                  <TableCell>
+                    {(it.tags || []).map((x) => (
+                      <Chip
+                        key={x.id}
+                        label={x.name}
+                        size="small"
+                        clickable
+                        onClick={() => applyLinkedTag(x.id)}
+                        sx={{ mr: 0.5, mb: 0.5 }}
+                      />
+                    ))}
+                  </TableCell>
+                  <TableCell sx={{ maxWidth: 220, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {it.note || ""}
+                  </TableCell>
+                  <TableCell align="left">
+                    <ButtonGroup variant="outlined" size="small">
+                      <Button onClick={() => toggleVoided(it)}>{it.is_voided ? t("restore") : t("void")}</Button>
+                      <Button onClick={(e) => openActionsMenu(e, it)} sx={{ px: 0.5, minWidth: 36 }}>
+                        <ArrowDropDownIcon fontSize="small" />
+                      </Button>
+                    </ButtonGroup>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
       </Paper>
 
       <Menu

@@ -102,5 +102,6 @@
   "global": "全体",
   "user": "ユーザー",
   "selectUser": "ユーザーを選択",
-  "viewing": "表示中"
+  "viewing": "表示中",
+  "actions": "アクション"
 }

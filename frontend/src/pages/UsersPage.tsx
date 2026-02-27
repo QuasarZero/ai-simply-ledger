@@ -19,7 +19,8 @@ import {
   TableHead,
   TableRow,
   TextField,
-  Typography
+  Typography,
+  TableContainer
 } from "@mui/material";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
@@ -150,39 +151,41 @@ export function UsersPage() {
       </Paper>
 
       <Paper sx={{ p: 2 }}>
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell>{t("email")}</TableCell>
-              <TableCell>{t("username")}</TableCell>
-              <TableCell>{t("admin")}</TableCell>
-              <TableCell>{t("active")}</TableCell>
-              <TableCell />
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {items.map((u) => (
-              <TableRow key={u.id}>
-                <TableCell>{u.email}</TableCell>
-                <TableCell>
-                  <Button size="small" onClick={() => navigate(`/admin/transactions?userId=${u.id}`)}>
-                    {u.username}
-                  </Button>
-                </TableCell>
-                <TableCell>{u.is_admin ? "Y" : ""}</TableCell>
-                <TableCell>{u.is_active ? "Y" : ""}</TableCell>
-                <TableCell align="right">
-                  <ButtonGroup variant="outlined" size="small">
-                    <Button onClick={() => openEdit(u)}>{t("edit")}</Button>
-                    <Button onClick={(e) => openActionsMenu(e, u)} sx={{ px: 0.5, minWidth: 36 }}>
-                      <ArrowDropDownIcon fontSize="small" />
-                    </Button>
-                  </ButtonGroup>
-                </TableCell>
+        <TableContainer sx={{ overflowX: "auto" }}>
+          <Table size="small" sx={{ tableLayout: "fixed" }}>
+            <TableHead>
+              <TableRow>
+                <TableCell sx={{width: 200}}>{t("email")}</TableCell>
+                <TableCell sx={{width: 110}}>{t("username")}</TableCell>
+                <TableCell sx={{width: 80}}>{t("admin")}</TableCell>
+                <TableCell sx={{width: 70}}>{t("active")}</TableCell>
+                <TableCell sx={{width: 120}}>{t("actions")}</TableCell>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHead>
+            <TableBody>
+              {items.map((u) => (
+                <TableRow key={u.id}>
+                  <TableCell>{u.email}</TableCell>
+                  <TableCell>
+                    <Button size="small" onClick={() => navigate(`/admin/transactions?userId=${u.id}`)}>
+                      {u.username}
+                    </Button>
+                  </TableCell>
+                  <TableCell>{u.is_admin ? "Y" : ""}</TableCell>
+                  <TableCell>{u.is_active ? "Y" : ""}</TableCell>
+                  <TableCell align="left">
+                    <ButtonGroup variant="outlined" size="small">
+                      <Button onClick={() => openEdit(u)}>{t("edit")}</Button>
+                      <Button onClick={(e) => openActionsMenu(e, u)} sx={{ px: 0.5, minWidth: 36 }}>
+                        <ArrowDropDownIcon fontSize="small" />
+                      </Button>
+                    </ButtonGroup>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
       </Paper>
 
       <Menu

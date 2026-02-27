@@ -102,5 +102,6 @@
   "global": "Global",
   "user": "User",
   "selectUser": "Select user",
-  "viewing": "Viewing"
+  "viewing": "Viewing",
+  "actions": "Actions"
 }

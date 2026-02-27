@@ -102,5 +102,6 @@
   "global": "全局",
   "user": "用户",
   "selectUser": "选择用户",
-  "viewing": "当前查看"
+  "viewing": "当前查看",
+  "actions": "操作"
 }
