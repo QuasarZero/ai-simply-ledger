@@ -3,9 +3,10 @@ from __future__ import annotations
 from decimal import Decimal
 from datetime import date, datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session, joinedload
 
+from app.audit import audit_log, diff
 from app.db import get_db
 from app.deps import require_admin
 from app.models import Category, Tag, Transaction, User
@@ -70,7 +71,12 @@ def list_users(db: Session = Depends(get_db)):
 
 
 @router.post("/users", response_model=UserOut)
-def create_user(payload: UserCreate, db: Session = Depends(get_db)):
+def create_user(
+    payload: UserCreate,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
     if db.query(User).filter(User.username == payload.username).first():
         raise HTTPException(status_code=400, detail="Username already exists")
     if db.query(User).filter(User.email == payload.email).first():
@@ -86,6 +92,19 @@ def create_user(payload: UserCreate, db: Session = Depends(get_db)):
     db.add(user)
     db.commit()
     db.refresh(user)
+    audit_log(
+        action="admin.user_create",
+        actor=current_user,
+        entity="user",
+        entity_id=user.id,
+        changes={
+            "email": {"from": None, "to": user.email},
+            "username": {"from": None, "to": user.username},
+            "is_admin": {"from": None, "to": bool(user.is_admin)},
+            "is_active": {"from": None, "to": bool(user.is_active)},
+        },
+        request=request,
+    )
     return UserOut(
         id=user.id,
         email=user.email,
@@ -112,10 +131,23 @@ def get_user(user_id: int, db: Session = Depends(get_db)):
 
 
 @router.patch("/users/{user_id}", response_model=UserOut)
-def update_user(user_id: int, payload: UserUpdate, db: Session = Depends(get_db)):
+def update_user(
+    user_id: int,
+    payload: UserUpdate,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="Not found")
+
+    before = {
+        "email": user.email,
+        "username": user.username,
+        "is_admin": bool(user.is_admin),
+        "is_active": bool(user.is_active),
+    }
 
     if payload.username and payload.username != user.username:
         if db.query(User).filter(User.username == payload.username).first():
@@ -134,6 +166,24 @@ def update_user(user_id: int, payload: UserUpdate, db: Session = Depends(get_db)
 
     db.commit()
     db.refresh(user)
+    changes = diff(
+        before,
+        {
+            "email": user.email,
+            "username": user.username,
+            "is_admin": bool(user.is_admin),
+            "is_active": bool(user.is_active),
+        },
+    )
+    if changes:
+        audit_log(
+            action="admin.user_update",
+            actor=current_user,
+            entity="user",
+            entity_id=user.id,
+            changes=changes,
+            request=request,
+        )
     return UserOut(
         id=user.id,
         email=user.email,
@@ -145,22 +195,50 @@ def update_user(user_id: int, payload: UserUpdate, db: Session = Depends(get_db)
 
 
 @router.post("/users/{user_id}/reset-password")
-def reset_password(user_id: int, payload: ResetPasswordIn, db: Session = Depends(get_db)):
+def reset_password(
+    user_id: int,
+    payload: ResetPasswordIn,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="Not found")
     user.password_hash = hash_password(payload.password)
     db.commit()
+    audit_log(
+        action="admin.user_reset_password",
+        actor=current_user,
+        entity="user",
+        entity_id=user_id,
+        changes={"password_reset": {"from": False, "to": True}},
+        request=request,
+    )
     return {"ok": True}
 
 
 @router.delete("/users/{user_id}")
-def delete_user(user_id: int, db: Session = Depends(get_db)):
+def delete_user(
+    user_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="Not found")
+    snapshot = {"email": user.email, "username": user.username, "is_admin": bool(user.is_admin), "is_active": bool(user.is_active)}
     db.delete(user)
     db.commit()
+    audit_log(
+        action="admin.user_delete",
+        actor=current_user,
+        entity="user",
+        entity_id=user_id,
+        changes={"deleted": {"from": False, "to": True}, **{k: {"from": v, "to": None} for k, v in snapshot.items()}},
+        request=request,
+    )
     return {"ok": True}
 
 
@@ -239,7 +317,13 @@ def list_transactions(
 
 
 @router.patch("/transactions/{tx_id}", response_model=TransactionOutAdmin)
-def update_transaction_admin(tx_id: int, payload: TransactionUpdate, db: Session = Depends(get_db)):
+def update_transaction_admin(
+    tx_id: int,
+    payload: TransactionUpdate,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
     tx = (
         db.query(Transaction)
         .options(joinedload(Transaction.categories), joinedload(Transaction.tags), joinedload(Transaction.user))
@@ -248,6 +332,18 @@ def update_transaction_admin(tx_id: int, payload: TransactionUpdate, db: Session
     )
     if not tx:
         raise HTTPException(status_code=404, detail="Not found")
+
+    before = {
+        "user_id": tx.user_id,
+        "type": tx.type,
+        "amount": float(tx.amount),
+        "currency": tx.currency,
+        "occurred_at": tx.occurred_at,
+        "note": tx.note,
+        "is_voided": bool(tx.is_voided),
+        "category_ids": [c.id for c in (tx.categories or [])],
+        "tag_ids": [t.id for t in (tx.tags or [])],
+    }
 
     if payload.type:
         tx.type = payload.type
@@ -276,22 +372,62 @@ def update_transaction_admin(tx_id: int, payload: TransactionUpdate, db: Session
 
     db.commit()
     db.refresh(tx)
+    after = {
+        "user_id": tx.user_id,
+        "type": tx.type,
+        "amount": float(tx.amount),
+        "currency": tx.currency,
+        "occurred_at": tx.occurred_at,
+        "note": tx.note,
+        "is_voided": bool(tx.is_voided),
+        "category_ids": [c.id for c in (tx.categories or [])],
+        "tag_ids": [t.id for t in (tx.tags or [])],
+    }
+    changes = diff(before, after)
+    if changes:
+        audit_log(
+            action="admin.transaction_update",
+            actor=current_user,
+            entity="transaction",
+            entity_id=tx.id,
+            changes=changes,
+            request=request,
+        )
     return _tx_to_out_admin(tx)
 
 
 @router.delete("/transactions/{tx_id}")
-def delete_transaction_admin(tx_id: int, db: Session = Depends(get_db)):
+def delete_transaction_admin(
+    tx_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
     tx = db.query(Transaction).filter(Transaction.id == tx_id).first()
     if not tx:
         raise HTTPException(status_code=404, detail="Not found")
+    snapshot = {"user_id": tx.user_id, "type": tx.type, "amount": float(tx.amount), "currency": tx.currency, "occurred_at": tx.occurred_at}
     db.delete(tx)
     db.commit()
+    audit_log(
+        action="admin.transaction_delete",
+        actor=current_user,
+        entity="transaction",
+        entity_id=tx_id,
+        changes={"deleted": {"from": False, "to": True}, **{k: {"from": v, "to": None} for k, v in snapshot.items()}},
+        request=request,
+    )
     return {"ok": True}
 
 
 @router.post("/transactions/bulk")
 @router.post("/transactions/bulk/")
-def bulk_action(payload: BulkActionIn, db: Session = Depends(get_db)):
+def bulk_action(
+    payload: BulkActionIn,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
     ids = [int(x) for x in payload.ids if int(x) > 0]
     if not ids:
         return {"ok": True, "affected": 0}
@@ -303,18 +439,42 @@ def bulk_action(payload: BulkActionIn, db: Session = Depends(get_db)):
         for tx in items:
             db.delete(tx)
         db.commit()
+        audit_log(
+            action="admin.transaction_bulk_delete",
+            actor=current_user,
+            entity="transaction",
+            entity_id=None,
+            changes={"ids": ids},
+            request=request,
+        )
         return {"ok": True, "affected": len(items)}
 
     if payload.action == "void":
         for tx in items:
             tx.is_voided = True
         db.commit()
+        audit_log(
+            action="admin.transaction_bulk_void",
+            actor=current_user,
+            entity="transaction",
+            entity_id=None,
+            changes={"ids": ids},
+            request=request,
+        )
         return {"ok": True, "affected": len(items)}
 
     if payload.action == "restore":
         for tx in items:
             tx.is_voided = False
         db.commit()
+        audit_log(
+            action="admin.transaction_bulk_restore",
+            actor=current_user,
+            entity="transaction",
+            entity_id=None,
+            changes={"ids": ids},
+            request=request,
+        )
         return {"ok": True, "affected": len(items)}
 
     raise HTTPException(status_code=400, detail="Invalid action")

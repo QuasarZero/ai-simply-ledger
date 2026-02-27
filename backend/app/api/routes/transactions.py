@@ -3,9 +3,10 @@ from __future__ import annotations
 from decimal import Decimal
 from datetime import date, datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session, joinedload
 
+from app.audit import audit_log, diff
 from app.db import get_db
 from app.deps import get_current_user
 from app.models import Category, Tag, Transaction, User
@@ -116,6 +117,7 @@ def list_transactions(
 @router.post("", response_model=TransactionOut)
 def create_transaction(
     payload: TransactionCreate,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -145,6 +147,23 @@ def create_transaction(
         .filter(Transaction.id == tx.id)
         .first()
     )
+    audit_log(
+        action="transaction.create",
+        actor=current_user,
+        entity="transaction",
+        entity_id=tx.id,
+        changes={
+            "type": {"from": None, "to": tx.type},
+            "amount": {"from": None, "to": float(tx.amount)},
+            "currency": {"from": None, "to": tx.currency},
+            "occurred_at": {"from": None, "to": tx.occurred_at},
+            "note": {"from": None, "to": tx.note},
+            "is_voided": {"from": None, "to": bool(tx.is_voided)},
+            "category_ids": {"from": None, "to": [c.id for c in (tx.categories or [])]},
+            "tag_ids": {"from": None, "to": [t.id for t in (tx.tags or [])]},
+        },
+        request=request,
+    )
     return _tx_to_out(tx)
 
 
@@ -169,6 +188,7 @@ def get_transaction(
 def update_transaction(
     tx_id: int,
     payload: TransactionUpdate,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -180,6 +200,17 @@ def update_transaction(
     )
     if not tx:
         raise HTTPException(status_code=404, detail="Not found")
+
+    before = {
+        "type": tx.type,
+        "amount": float(tx.amount),
+        "currency": tx.currency,
+        "occurred_at": tx.occurred_at,
+        "note": tx.note,
+        "is_voided": bool(tx.is_voided),
+        "category_ids": [c.id for c in (tx.categories or [])],
+        "tag_ids": [t.id for t in (tx.tags or [])],
+    }
 
     if payload.type:
         tx.type = payload.type
@@ -214,20 +245,50 @@ def update_transaction(
         .filter(Transaction.id == tx.id)
         .first()
     )
+    after = {
+        "type": tx.type,
+        "amount": float(tx.amount),
+        "currency": tx.currency,
+        "occurred_at": tx.occurred_at,
+        "note": tx.note,
+        "is_voided": bool(tx.is_voided),
+        "category_ids": [c.id for c in (tx.categories or [])],
+        "tag_ids": [t.id for t in (tx.tags or [])],
+    }
+    changes = diff(before, after)
+    if changes:
+        audit_log(
+            action="transaction.update",
+            actor=current_user,
+            entity="transaction",
+            entity_id=tx.id,
+            changes=changes,
+            request=request,
+        )
     return _tx_to_out(tx)
 
 
 @router.delete("/{tx_id}")
 def delete_transaction(
     tx_id: int,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     tx = db.query(Transaction).filter(Transaction.id == tx_id, Transaction.user_id == current_user.id).first()
     if not tx:
         raise HTTPException(status_code=404, detail="Not found")
+    snapshot = {"type": tx.type, "amount": float(tx.amount), "currency": tx.currency, "occurred_at": tx.occurred_at}
     db.delete(tx)
     db.commit()
+    audit_log(
+        action="transaction.delete",
+        actor=current_user,
+        entity="transaction",
+        entity_id=tx_id,
+        changes={"deleted": {"from": False, "to": True}, **{k: {"from": v, "to": None} for k, v in snapshot.items()}},
+        request=request,
+    )
     return {"ok": True}
 
 
@@ -235,6 +296,7 @@ def delete_transaction(
 @router.post("/bulk/")
 def bulk_action(
     payload: BulkActionIn,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -248,18 +310,42 @@ def bulk_action(
         for tx in items:
             db.delete(tx)
         db.commit()
+        audit_log(
+            action="transaction.bulk_delete",
+            actor=current_user,
+            entity="transaction",
+            entity_id=None,
+            changes={"ids": ids},
+            request=request,
+        )
         return {"ok": True, "affected": len(items)}
 
     if payload.action == "void":
         for tx in items:
             tx.is_voided = True
         db.commit()
+        audit_log(
+            action="transaction.bulk_void",
+            actor=current_user,
+            entity="transaction",
+            entity_id=None,
+            changes={"ids": ids},
+            request=request,
+        )
         return {"ok": True, "affected": len(items)}
 
     if payload.action == "restore":
         for tx in items:
             tx.is_voided = False
         db.commit()
+        audit_log(
+            action="transaction.bulk_restore",
+            actor=current_user,
+            entity="transaction",
+            entity_id=None,
+            changes={"ids": ids},
+            request=request,
+        )
         return {"ok": True, "affected": len(items)}
 
     raise HTTPException(status_code=400, detail="Invalid action")

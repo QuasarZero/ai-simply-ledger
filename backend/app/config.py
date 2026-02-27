@@ -10,6 +10,7 @@ class Settings(BaseSettings):
 
     app_env: str = "prod"
     debug: bool = False
+    log_dir: str = "logs"
 
     secret_key: str = "change-me"
     access_token_expire_minutes: int = 60 * 24 * 7
@@ -43,4 +44,3 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
-

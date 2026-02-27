@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
+from app.audit import audit_log, diff
 from app.db import get_db
 from app.deps import get_current_user
 from app.models import User
@@ -15,12 +16,27 @@ router = APIRouter()
 
 
 @router.post("/auth/login", response_model=TokenResponse)
-def login(form: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+def login(
+    request: Request,
+    form: OAuth2PasswordRequestForm = Depends(),
+    db: Session = Depends(get_db),
+):
     login_id = form.username
     user = db.query(User).filter((User.username == login_id) | (User.email == login_id)).first()
     if not user or not user.is_active or not verify_password(form.password, user.password_hash):
+        audit_log(
+            action="auth.login_failed",
+            actor=None,
+            request=request,
+            extra={"login_id": login_id},
+        )
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
     token = create_access_token(subject=user.username)
+    audit_log(
+        action="auth.login",
+        actor=user,
+        request=request,
+    )
     return TokenResponse(access_token=token)
 
 
@@ -38,9 +54,11 @@ def me(current_user: User = Depends(get_current_user)):
 @router.patch("/me", response_model=UserMe)
 def update_me(
     payload: MeUpdateIn,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    before = {"email": current_user.email}
     if not verify_password(payload.current_password, current_user.password_hash):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid current password")
 
@@ -55,6 +73,16 @@ def update_me(
 
     db.commit()
     db.refresh(current_user)
+    after = {"email": current_user.email, "password_changed": bool(payload.new_password)}
+    changes = diff(before, after)
+    audit_log(
+        action="user.me_update",
+        actor=current_user,
+        entity="user",
+        entity_id=current_user.id,
+        changes=changes,
+        request=request,
+    )
     return UserMe(
         id=current_user.id,
         email=current_user.email,
@@ -62,3 +90,12 @@ def update_me(
         is_admin=current_user.is_admin,
         is_active=current_user.is_active,
     )
+
+
+@router.post("/auth/logout")
+def logout(
+    request: Request,
+    current_user: User = Depends(get_current_user),
+):
+    audit_log(action="auth.logout", actor=current_user, request=request)
+    return {"ok": True}

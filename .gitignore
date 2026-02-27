@@ -22,6 +22,10 @@
 # DB volume (if mapped)
 pgdata/
 
+# logs
+logs/
+**/audit-*.log
+**/error-*.log
 
 # IDE
 **/.idea/

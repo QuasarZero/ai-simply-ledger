@@ -3,6 +3,15 @@ import { emitToast } from "../components/toastBus";
 
 const baseURL = (import.meta.env.VITE_API_BASE_URL as string) || "/api";
 
+declare module "axios" {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  export interface AxiosRequestConfig<D = any> {
+    meta?: {
+      silentToast?: boolean;
+    };
+  }
+}
+
 export const api = axios.create({
   baseURL
 });

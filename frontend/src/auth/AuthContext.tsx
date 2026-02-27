@@ -71,6 +71,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   function logout() {
+    // Best-effort logout audit (doesn't revoke JWT; only for server-side business logs).
+    if (token) {
+      api
+        .post("/auth/logout", null, { meta: { silentToast: true } })
+        .catch(() => {});
+    }
     localStorage.removeItem("token");
     setToken(null);
     setMe(null);
