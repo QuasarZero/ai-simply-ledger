@@ -54,6 +54,7 @@ export function UsersPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [items, setItems] = useState<User[]>([]);
+  const [q, setQ] = useState<string>("");
   const [sortKey, setSortKey] = useState<SortKey>("username");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [actionsAnchorEl, setActionsAnchorEl] = useState<HTMLElement | null>(null);
@@ -162,8 +163,16 @@ export function UsersPage() {
   }
 
   const sortedItems = useMemo(() => {
+    const query = q.trim().toLowerCase();
+    const base = query
+      ? items.filter((u) => {
+          const userHit = u.username.toLowerCase().includes(query);
+          const emailHit = u.email.toLowerCase().includes(query);
+          return userHit || emailHit;
+        })
+      : items;
     const dir = sortDir === "asc" ? 1 : -1;
-    return stableSort(items, (a, b) => {
+    return stableSort(base, (a, b) => {
       let va: string | number = "";
       let vb: string | number = "";
       switch (sortKey) {
@@ -187,7 +196,7 @@ export function UsersPage() {
       if (typeof va === "number" && typeof vb === "number") return (va - vb) * dir;
       return String(va).localeCompare(String(vb)) * dir;
     });
-  }, [items, sortDir, sortKey]);
+  }, [items, q, sortDir, sortKey]);
 
   return (
     <Stack spacing={2}>
@@ -196,6 +205,14 @@ export function UsersPage() {
           <Typography variant="h6" sx={{ flexGrow: 1 }}>
             {t("users")}
           </Typography>
+          <TextField
+            label={t("search")}
+            placeholder={t("searchUsersHint")}
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            size="small"
+            sx={{ width: 280 }}
+          />
           <Button variant="contained" onClick={openCreate}>
             {t("create")}
           </Button>

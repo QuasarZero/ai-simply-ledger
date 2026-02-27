@@ -43,6 +43,7 @@ export function CategoriesPage() {
   const { confirm, dialog } = useConfirm();
   const { me } = useAuth();
   const [items, setItems] = useState<Category[]>([]);
+  const [q, setQ] = useState<string>("");
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [open, setOpen] = useState(false);
@@ -100,13 +101,21 @@ export function CategoriesPage() {
   }
 
   const sortedItems = useMemo(() => {
+    const query = q.trim().toLowerCase();
+    const base = query
+      ? items.filter((c) => {
+          const nameHit = c.name.toLowerCase().includes(query);
+          const descHit = (c.description || "").toLowerCase().includes(query);
+          return nameHit || descHit;
+        })
+      : items;
     const dir = sortDir === "asc" ? 1 : -1;
-    return stableSort(items, (a, b) => {
+    return stableSort(base, (a, b) => {
       const va = sortKey === "name" ? a.name : (a.description || "");
       const vb = sortKey === "name" ? b.name : (b.description || "");
       return String(va).localeCompare(String(vb)) * dir;
     });
-  }, [items, sortDir, sortKey]);
+  }, [items, q, sortDir, sortKey]);
 
   return (
     <Stack spacing={2}>
@@ -115,6 +124,14 @@ export function CategoriesPage() {
           <Typography variant="h6" sx={{ flexGrow: 1 }}>
             {t("categories")}
           </Typography>
+          <TextField
+            label={t("search")}
+            placeholder={t("searchCategoriesHint")}
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            size="small"
+            sx={{ width: 260 }}
+          />
           <Button variant="contained" onClick={openCreate}>
             {t("create")}
           </Button>

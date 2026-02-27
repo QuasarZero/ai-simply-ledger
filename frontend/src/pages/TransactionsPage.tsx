@@ -93,6 +93,7 @@ export function TransactionsPage() {
   );
   const [voided, setVoided] = useState(false);
   const [typeFilter, setTypeFilter] = useState<"all" | "expense" | "income">("all");
+  const [q, setQ] = useState<string>("");
   const [minAmount, setMinAmount] = useState<string>("");
   const [maxAmount, setMaxAmount] = useState<string>("");
   const [linkCategoryId, setLinkCategoryId] = useState<number | null>(() => {
@@ -142,6 +143,8 @@ export function TransactionsPage() {
       end: end.format("YYYY-MM-DD"),
       voided: voided ? true : undefined
     };
+    const query = q.trim();
+    if (query) p.q = query;
     if (typeFilter !== "all") p.type = typeFilter;
     const min = minAmount.trim();
     const max = maxAmount.trim();
@@ -413,6 +416,14 @@ export function TransactionsPage() {
           <FormControlLabel
             control={<Checkbox checked={voided} onChange={(e) => setVoided(e.target.checked)} />}
             label={t("voided")}
+          />
+          <TextField
+            label={t("search")}
+            placeholder={t("searchNoteOnly")}
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            size="small"
+            sx={{ width: 220 }}
           />
           <TextField
             select

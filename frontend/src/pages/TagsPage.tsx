@@ -43,6 +43,7 @@ export function TagsPage() {
   const { confirm, dialog } = useConfirm();
   const { me } = useAuth();
   const [items, setItems] = useState<TagWithUsage[]>([]);
+  const [q, setQ] = useState<string>("");
   const [sortKey, setSortKey] = useState<SortKey>("used_count");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [open, setOpen] = useState(false);
@@ -97,12 +98,14 @@ export function TagsPage() {
   }
 
   const sortedItems = useMemo(() => {
+    const query = q.trim().toLowerCase();
+    const base = query ? items.filter((x) => x.name.toLowerCase().includes(query)) : items;
     const dir = sortDir === "asc" ? 1 : -1;
-    return stableSort(items, (a, b) => {
+    return stableSort(base, (a, b) => {
       if (sortKey === "used_count") return (((a.used_count ?? 0) - (b.used_count ?? 0)) * dir);
       return a.name.localeCompare(b.name) * dir;
     });
-  }, [items, sortDir, sortKey]);
+  }, [items, q, sortDir, sortKey]);
 
   return (
     <Stack spacing={2}>
@@ -111,6 +114,14 @@ export function TagsPage() {
           <Typography variant="h6" sx={{ flexGrow: 1 }}>
             {t("tags")}
           </Typography>
+          <TextField
+            label={t("search")}
+            placeholder={t("searchTagsHint")}
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            size="small"
+            sx={{ width: 240 }}
+          />
           <Button variant="contained" onClick={openCreate}>
             {t("create")}
           </Button>
