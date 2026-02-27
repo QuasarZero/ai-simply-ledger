@@ -1,4 +1,5 @@
-import React, { Suspense, useEffect, useMemo, useState } from "react";
+import * as React from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { Autocomplete, Box, Paper, Stack, Tab, Tabs, TextField, Typography } from "@mui/material";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { useTranslation } from "react-i18next";

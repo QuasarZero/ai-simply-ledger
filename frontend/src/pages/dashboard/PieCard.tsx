@@ -1,4 +1,4 @@
-import React from "react";
+import * as React from "react";
 import { Box, Paper, Typography } from "@mui/material";
 import { Cell, Pie, PieChart, ResponsiveContainer, Sector, Tooltip } from "recharts";
 import { PIE_COLORS } from "./chartColors";

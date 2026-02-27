@@ -1,4 +1,3 @@
-import React from "react";
 import { Grid, Paper, Table, TableBody, TableCell, TableHead, TableRow, Typography } from "@mui/material";
 import { useTranslation } from "react-i18next";
 
@@ -118,4 +117,3 @@ export function TagTopTables({ data }: { data: DashboardData | null }) {
     </Grid>
   );
 }
-

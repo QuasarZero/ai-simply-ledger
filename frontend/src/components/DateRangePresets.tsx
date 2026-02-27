@@ -1,4 +1,4 @@
-import React from "react";
+import * as React from "react";
 import { MenuItem, TextField } from "@mui/material";
 import type { Dayjs } from "dayjs";
 import dayjs from "../dayjs";
@@ -109,4 +109,3 @@ export function DateRangePresets({
     </TextField>
   );
 }
-

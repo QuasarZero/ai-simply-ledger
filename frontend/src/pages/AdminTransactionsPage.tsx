@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Box,
   Button,
@@ -100,7 +100,7 @@ export function AdminTransactionsPage() {
       .catch(() => {});
   }, []);
 
-  const userLabelById = React.useMemo(() => {
+  const userLabelById = useMemo(() => {
     const map = new Map<number, string>();
     users.forEach((u) => map.set(u.id, `${u.username} (${u.email})`));
     return map;
