@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Button,
+  Checkbox,
   Dialog,
   DialogActions,
   DialogContent,
@@ -14,7 +15,8 @@ import {
   TableSortLabel,
   TableRow,
   TextField,
-  Typography
+  Typography,
+  Box
 } from "@mui/material";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
@@ -61,6 +63,7 @@ export function CategoriesPage() {
     const v = persisted.page;
     return typeof v === "number" && Number.isFinite(v) && v >= 0 ? v : 0;
   });
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Category | null>(null);
   const [name, setName] = useState("");
@@ -69,6 +72,7 @@ export function CategoriesPage() {
   async function load() {
     const res = await api.get("/categories");
     setItems(res.data as Category[]);
+    setSelectedIds(new Set());
   }
 
   useEffect(() => {
@@ -85,6 +89,7 @@ export function CategoriesPage() {
     if (lastQ.current === q) return;
     lastQ.current = q;
     setPage(0);
+    setSelectedIds(new Set());
   }, [q]);
 
   function openCreate() {
@@ -115,6 +120,17 @@ export function CategoriesPage() {
     const ok = await confirm({ message: t("confirmDeleteCategory"), danger: true });
     if (!ok) return;
     await api.delete(`/categories/${id}`);
+    await load();
+  }
+
+  async function bulkDelete() {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    const ok = await confirm({ message: t("confirmBulkDeleteCategories"), danger: true });
+    if (!ok) return;
+    for (const id of ids) {
+      await api.delete(`/categories/${id}`);
+    }
     await load();
   }
 
@@ -158,9 +174,23 @@ export function CategoriesPage() {
     <Stack spacing={2}>
       <Paper sx={{ p: 2 }}>
         <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 2 }}>
-          <Typography variant="h6" sx={{ flexGrow: 1 }}>
+          <Typography variant="h6">
             {t("categories")}
           </Typography>
+          <Button variant="contained" onClick={openCreate}>
+            {t("create")}
+          </Button>
+          {selectedIds.size > 0 ? (
+            <Stack direction="row" spacing={1} alignItems="center">
+              <Typography variant="body2">
+                {t("selected")}: {selectedIds.size}
+              </Typography>
+              <Button size="small" color="error" onClick={bulkDelete}>
+                {t("delete")}
+              </Button>
+            </Stack>
+          ) : null}
+          <Box sx={{ flexGrow: 1 }} />
           <TextField
             label={t("search")}
             placeholder={t("searchCategoriesHint")}
@@ -169,13 +199,31 @@ export function CategoriesPage() {
             size="small"
             sx={{ width: 260 }}
           />
-          <Button variant="contained" onClick={openCreate}>
-            {t("create")}
-          </Button>
         </Stack>
         <Table size="small">
           <TableHead>
             <TableRow>
+              <TableCell padding="checkbox">
+                <Checkbox
+                  checked={pagedItems.length > 0 && pagedItems.every((x) => selectedIds.has(x.id))}
+                  indeterminate={
+                    selectedIds.size > 0 &&
+                    pagedItems.some((x) => selectedIds.has(x.id)) &&
+                    !pagedItems.every((x) => selectedIds.has(x.id))
+                  }
+                  onChange={(e) => {
+                    if (e.target.checked) {
+                      setSelectedIds((prev) => new Set([...Array.from(prev), ...pagedItems.map((x) => x.id)]));
+                    } else {
+                      setSelectedIds((prev) => {
+                        const next = new Set(prev);
+                        pagedItems.forEach((x) => next.delete(x.id));
+                        return next;
+                      });
+                    }
+                  }}
+                />
+              </TableCell>
               <TableCell sortDirection={sortKey === "name" ? sortDir : false}>
                 <TableSortLabel
                   active={sortKey === "name"}
@@ -200,6 +248,19 @@ export function CategoriesPage() {
           <TableBody>
             {pagedItems.map((c) => (
               <TableRow key={c.id}>
+                <TableCell padding="checkbox">
+                  <Checkbox
+                    checked={selectedIds.has(c.id)}
+                    onChange={(e) => {
+                      setSelectedIds((prev) => {
+                        const next = new Set(prev);
+                        if (e.target.checked) next.add(c.id);
+                        else next.delete(c.id);
+                        return next;
+                      });
+                    }}
+                  />
+                </TableCell>
                 <TableCell>
                   <Button
                     size="small"

@@ -558,9 +558,12 @@ export function TransactionsPage() {
 
       <Paper sx={{ p: 2 }}>
         <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 1 }}>
-          <Typography variant="h6" sx={{ flexGrow: 1 }}>
+          <Typography variant="h6">
             {t("transactions")}
           </Typography>
+          <Button variant="contained" onClick={openCreate}>
+            {t("create")}
+          </Button>
           {selectedIds.size > 0 ? (
             <Stack direction="row" spacing={1} alignItems="center">
               <Typography variant="body2">
@@ -577,9 +580,6 @@ export function TransactionsPage() {
               </Button>
             </Stack>
           ) : null}
-          <Button variant="contained" onClick={openCreate}>
-            {t("create")}
-          </Button>
         </Stack>
         <TableContainer sx={{ overflowX: "auto" }}>
           <Table size="small" sx={{ tableLayout: "fixed" }}>

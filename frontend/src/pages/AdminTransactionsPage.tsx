@@ -484,7 +484,7 @@ export function AdminTransactionsPage() {
 
       <Paper sx={{ p: 2 }}>
         <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 1 }}>
-          <Typography variant="h6" sx={{ flexGrow: 1 }}>
+          <Typography variant="h6">
             {t("adminTransactions")}
           </Typography>
           {selectedIds.size > 0 ? (
@@ -503,6 +503,7 @@ export function AdminTransactionsPage() {
               </Button>
             </Stack>
           ) : null}
+          <Box sx={{ flexGrow: 1 }} />
         </Stack>
         <TableContainer sx={{ overflowX: "auto" }}>
           <Table size="small" sx={{ tableLayout: "fixed" }}>

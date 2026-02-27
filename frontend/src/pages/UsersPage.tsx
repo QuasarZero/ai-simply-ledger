@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Button,
   ButtonGroup,
+  Checkbox,
   Divider,
   Dialog,
   DialogActions,
@@ -21,7 +22,8 @@ import {
   TableRow,
   TextField,
   Typography,
-  TableContainer
+  TableContainer,
+  Box
 } from "@mui/material";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
@@ -30,6 +32,7 @@ import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
 import { api } from "../api/client";
 import { safeParseJson } from "../storage";
 import { PaginationBar } from "../components/PaginationBar";
+import { useConfirm } from "../hooks/useConfirm";
 
 type User = {
   id: number;
@@ -56,6 +59,7 @@ function stableSort<T>(arr: T[], cmp: (a: T, b: T) => number): T[] {
 export function UsersPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const { confirm, dialog } = useConfirm();
   const [items, setItems] = useState<User[]>([]);
   const persisted = useMemo(() => safeParseJson<Record<string, any>>(STORAGE_KEY) || {}, []);
   const [q, setQ] = useState<string>(() => (typeof persisted.q === "string" ? persisted.q : ""));
@@ -72,6 +76,7 @@ export function UsersPage() {
     const v = persisted.page;
     return typeof v === "number" && Number.isFinite(v) && v >= 0 ? v : 0;
   });
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [actionsAnchorEl, setActionsAnchorEl] = useState<HTMLElement | null>(null);
   const [actionsUser, setActionsUser] = useState<User | null>(null);
 
@@ -91,6 +96,7 @@ export function UsersPage() {
   async function load() {
     const res = await api.get("/admin/users");
     setItems(res.data as User[]);
+    setSelectedIds(new Set());
   }
 
   useEffect(() => {
@@ -103,6 +109,7 @@ export function UsersPage() {
     if (lastQ.current === q) return;
     lastQ.current = q;
     setPage(0);
+    setSelectedIds(new Set());
   }, [q]);
 
   useEffect(() => {
@@ -154,7 +161,20 @@ export function UsersPage() {
   }
 
   async function del(id: number) {
+    const ok = await confirm({ message: t("confirmDeleteUser"), danger: true });
+    if (!ok) return;
     await api.delete(`/admin/users/${id}`);
+    await load();
+  }
+
+  async function bulkDelete() {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    const ok = await confirm({ message: t("confirmBulkDeleteUsers"), danger: true });
+    if (!ok) return;
+    for (const id of ids) {
+      await api.delete(`/admin/users/${id}`);
+    }
     await load();
   }
 
@@ -239,9 +259,23 @@ export function UsersPage() {
     <Stack spacing={2}>
       <Paper sx={{ p: 2 }}>
         <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 2 }}>
-          <Typography variant="h6" sx={{ flexGrow: 1 }}>
+          <Typography variant="h6">
             {t("users")}
           </Typography>
+          <Button variant="contained" onClick={openCreate}>
+            {t("create")}
+          </Button>
+          {selectedIds.size > 0 ? (
+            <Stack direction="row" spacing={1} alignItems="center">
+              <Typography variant="body2">
+                {t("selected")}: {selectedIds.size}
+              </Typography>
+              <Button size="small" color="error" onClick={bulkDelete}>
+                {t("delete")}
+              </Button>
+            </Stack>
+          ) : null}
+          <Box sx={{ flexGrow: 1 }} />
           <TextField
             label={t("search")}
             placeholder={t("searchUsersHint")}
@@ -250,15 +284,33 @@ export function UsersPage() {
             size="small"
             sx={{ width: 280 }}
           />
-          <Button variant="contained" onClick={openCreate}>
-            {t("create")}
-          </Button>
         </Stack>
 
         <TableContainer sx={{ overflowX: "auto" }}>
           <Table size="small" sx={{ tableLayout: "fixed" }}>
             <TableHead>
               <TableRow>
+                <TableCell padding="checkbox">
+                  <Checkbox
+                    checked={pagedItems.length > 0 && pagedItems.every((x) => selectedIds.has(x.id))}
+                    indeterminate={
+                      selectedIds.size > 0 &&
+                      pagedItems.some((x) => selectedIds.has(x.id)) &&
+                      !pagedItems.every((x) => selectedIds.has(x.id))
+                    }
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedIds((prev) => new Set([...Array.from(prev), ...pagedItems.map((x) => x.id)]));
+                      } else {
+                        setSelectedIds((prev) => {
+                          const next = new Set(prev);
+                          pagedItems.forEach((x) => next.delete(x.id));
+                          return next;
+                        });
+                      }
+                    }}
+                  />
+                </TableCell>
                 <TableCell sx={{ width: 200 }} sortDirection={sortKey === "email" ? sortDir : false}>
                   <TableSortLabel
                     active={sortKey === "email"}
@@ -301,6 +353,19 @@ export function UsersPage() {
             <TableBody>
               {pagedItems.map((u) => (
                 <TableRow key={u.id}>
+                  <TableCell padding="checkbox">
+                    <Checkbox
+                      checked={selectedIds.has(u.id)}
+                      onChange={(e) => {
+                        setSelectedIds((prev) => {
+                          const next = new Set(prev);
+                          if (e.target.checked) next.add(u.id);
+                          else next.delete(u.id);
+                          return next;
+                        });
+                      }}
+                    />
+                  </TableCell>
                   <TableCell>{u.email}</TableCell>
                   <TableCell>
                     <Button size="small" onClick={() => navigate(`/admin/transactions?userId=${u.id}`)}>
@@ -333,6 +398,8 @@ export function UsersPage() {
           }}
         />
       </Paper>
+
+      {dialog}
 
       <Menu
         anchorEl={actionsAnchorEl}
