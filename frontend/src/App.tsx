@@ -17,6 +17,7 @@ import { CategoriesPage } from "./pages/CategoriesPage";
 import { TagsPage } from "./pages/TagsPage";
 import { UsersPage } from "./pages/UsersPage";
 import { ProfilePage } from "./pages/ProfilePage";
+import { ToastProvider } from "./components/ToastProvider";
 
 export default function App() {
   const { i18n } = useTranslation();
@@ -37,48 +38,50 @@ export default function App() {
       <CssBaseline />
       <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale={adapterLocale}>
         <AuthProvider>
-          <BrowserRouter>
-            <Routes>
-              <Route path="/login" element={<LoginPage />} />
-              <Route
-                path="/*"
-                element={
-                  <ProtectedRoute>
-                    <AppLayout mode={mode} toggleTheme={toggleTheme} />
-                  </ProtectedRoute>
-                }
-              >
-                <Route index element={<DashboardPage />} />
-                <Route path="transactions" element={<TransactionsPage />} />
-                <Route path="tags" element={<TagsPage />} />
-                <Route path="profile" element={<ProfilePage />} />
+          <ToastProvider>
+            <BrowserRouter>
+              <Routes>
+                <Route path="/login" element={<LoginPage />} />
                 <Route
-                  path="admin/transactions"
+                  path="/*"
                   element={
-                    <AdminRoute>
-                      <AdminTransactionsPage />
-                    </AdminRoute>
+                    <ProtectedRoute>
+                      <AppLayout mode={mode} toggleTheme={toggleTheme} />
+                    </ProtectedRoute>
                   }
-                />
-                <Route
-                  path="admin/categories"
-                  element={
-                    <AdminRoute>
-                      <CategoriesPage />
-                    </AdminRoute>
-                  }
-                />
-                <Route
-                  path="admin/users"
-                  element={
-                    <AdminRoute>
-                      <UsersPage />
-                    </AdminRoute>
-                  }
-                />
-              </Route>
-            </Routes>
-          </BrowserRouter>
+                >
+                  <Route index element={<DashboardPage />} />
+                  <Route path="transactions" element={<TransactionsPage />} />
+                  <Route path="tags" element={<TagsPage />} />
+                  <Route path="profile" element={<ProfilePage />} />
+                  <Route
+                    path="admin/transactions"
+                    element={
+                      <AdminRoute>
+                        <AdminTransactionsPage />
+                      </AdminRoute>
+                    }
+                  />
+                  <Route
+                    path="admin/categories"
+                    element={
+                      <AdminRoute>
+                        <CategoriesPage />
+                      </AdminRoute>
+                    }
+                  />
+                  <Route
+                    path="admin/users"
+                    element={
+                      <AdminRoute>
+                        <UsersPage />
+                      </AdminRoute>
+                    }
+                  />
+                </Route>
+              </Routes>
+            </BrowserRouter>
+          </ToastProvider>
         </AuthProvider>
       </LocalizationProvider>
     </ThemeProvider>
