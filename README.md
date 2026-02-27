@@ -27,10 +27,10 @@
 cp .env.example .env
 ```
 
-2) 启动：
+2) 启动（修改代码后建议强制重建/重启，避免浏览器缓存或容器未替换导致看到旧版）：
 
 ```bash
-docker compose up -d --build
+docker compose up -d --build --force-recreate
 ```
 
 3) 初始化管理员
