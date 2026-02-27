@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Button,
   ButtonGroup,
@@ -29,6 +29,7 @@ import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
 
 import { api } from "../api/client";
 import { safeParseJson } from "../storage";
+import { PaginationBar } from "../components/PaginationBar";
 
 type User = {
   id: number;
@@ -63,6 +64,14 @@ export function UsersPage() {
     return v === "email" || v === "username" || v === "is_admin" || v === "is_active" ? v : "username";
   });
   const [sortDir, setSortDir] = useState<SortDir>(() => (persisted.sortDir === "asc" || persisted.sortDir === "desc" ? persisted.sortDir : "asc"));
+  const [pageSize, setPageSize] = useState<number>(() => {
+    const v = persisted.pageSize;
+    return typeof v === "number" && Number.isFinite(v) && v > 0 ? v : 20;
+  });
+  const [page, setPage] = useState<number>(() => {
+    const v = persisted.page;
+    return typeof v === "number" && Number.isFinite(v) && v >= 0 ? v : 0;
+  });
   const [actionsAnchorEl, setActionsAnchorEl] = useState<HTMLElement | null>(null);
   const [actionsUser, setActionsUser] = useState<User | null>(null);
 
@@ -85,9 +94,16 @@ export function UsersPage() {
   }
 
   useEffect(() => {
-    const payload = { q, sortKey, sortDir };
+    const payload = { q, sortKey, sortDir, page, pageSize };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-  }, [q, sortKey, sortDir]);
+  }, [q, sortKey, sortDir, page, pageSize]);
+
+  const lastQ = useRef(q);
+  useEffect(() => {
+    if (lastQ.current === q) return;
+    lastQ.current = q;
+    setPage(0);
+  }, [q]);
 
   useEffect(() => {
     load().catch(() => {});
@@ -209,6 +225,16 @@ export function UsersPage() {
     });
   }, [items, q, sortDir, sortKey]);
 
+  const pagedItems = useMemo(() => {
+    const start = page * pageSize;
+    return sortedItems.slice(start, start + pageSize);
+  }, [sortedItems, page, pageSize]);
+
+  useEffect(() => {
+    if (page === 0) return;
+    if (page * pageSize >= sortedItems.length) setPage(0);
+  }, [page, pageSize, sortedItems.length]);
+
   return (
     <Stack spacing={2}>
       <Paper sx={{ p: 2 }}>
@@ -275,7 +301,7 @@ export function UsersPage() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {sortedItems.map((u) => (
+              {pagedItems.map((u) => (
                 <TableRow key={u.id}>
                   <TableCell>{u.email}</TableCell>
                   <TableCell>
@@ -298,6 +324,16 @@ export function UsersPage() {
             </TableBody>
           </Table>
         </TableContainer>
+        <PaginationBar
+          page={page}
+          pageSize={pageSize}
+          total={sortedItems.length}
+          onPageChange={(p) => setPage(p)}
+          onPageSizeChange={(n) => {
+            setPage(0);
+            setPageSize(n);
+          }}
+        />
       </Paper>
 
       <Menu

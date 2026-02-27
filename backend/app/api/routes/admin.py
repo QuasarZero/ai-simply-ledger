@@ -179,12 +179,13 @@ def list_transactions(
     max_amount: float | None = None,
     skip: int = 0,
     limit: int = 50,
+    sort_key: str | None = None,
+    sort_dir: str | None = None,
 ):
     query = (
         db.query(Transaction)
         .options(joinedload(Transaction.categories), joinedload(Transaction.tags), joinedload(Transaction.user))
         .filter(Transaction.is_voided == voided)
-        .order_by(Transaction.occurred_at.desc())
     )
     if user_id is not None:
         query = query.filter(Transaction.user_id == user_id)
@@ -209,8 +210,31 @@ def list_transactions(
     if max_amount is not None:
         query = query.filter(Transaction.amount <= Decimal(str(max_amount)))
 
+    dir_is_asc = sort_dir == "asc"
+    if sort_key == "user":
+        query = query.join(User, Transaction.user_id == User.id)
+        query = query.order_by(
+            User.username.asc() if dir_is_asc else User.username.desc(),
+            User.email.asc() if dir_is_asc else User.email.desc(),
+            Transaction.occurred_at.desc(),
+            Transaction.id.desc(),
+        )
+    else:
+        order_col = Transaction.occurred_at
+        if sort_key == "amount":
+            order_col = Transaction.amount
+        elif sort_key == "type":
+            order_col = Transaction.type
+        elif sort_key == "currency":
+            order_col = Transaction.currency
+        elif sort_key == "note":
+            order_col = Transaction.note
+        elif sort_key == "occurred_at":
+            order_col = Transaction.occurred_at
+        query = query.order_by(order_col.asc() if dir_is_asc else order_col.desc(), Transaction.id.desc())
+
     total = query.count()
-    items = query.offset(skip).limit(min(limit, 200)).all()
+    items = query.offset(skip).limit(min(limit, 500)).all()
     return TransactionListAdmin(items=[_tx_to_out_admin(t) for t in items], total=total)
 
 

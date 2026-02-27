@@ -32,6 +32,7 @@ import { DateRangePresets } from "../components/DateRangePresets";
 import { usePersistedDateRange } from "../hooks/usePersistedDateRange";
 import { useConfirm } from "../hooks/useConfirm";
 import { safeParseJson } from "../storage";
+import { PaginationBar } from "../components/PaginationBar";
 
 type Tx = {
   id: number;
@@ -70,6 +71,7 @@ export function AdminTransactionsPage() {
   const { confirm, dialog } = useConfirm();
   const [searchParams, setSearchParams] = useSearchParams();
   const [items, setItems] = useState<Tx[]>([]);
+  const [total, setTotal] = useState<number>(0);
   const [users, setUsers] = useState<User[]>([]);
   const persisted = useMemo(() => safeParseJson<Record<string, any>>(STORAGE_KEY) || {}, []);
   const { preset, setPreset, start, setStart, end, setEnd } = usePersistedDateRange(
@@ -104,7 +106,19 @@ export function AdminTransactionsPage() {
   });
   const [categories, setCategories] = useState<Category[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
-  const [appliedParams, setAppliedParams] = useState<Record<string, any> | null>(null);
+  const [pageSize, setPageSize] = useState<number>(() => {
+    const v = persisted.pageSize;
+    return typeof v === "number" && Number.isFinite(v) && v > 0 ? v : 20;
+  });
+  const [page, setPage] = useState<number>(() => {
+    const v = persisted.page;
+    return typeof v === "number" && Number.isFinite(v) && v >= 0 ? v : 0;
+  });
+  const [appliedFilters, setAppliedFilters] = useState<Record<string, any> | null>(null);
+  const [appliedFilterKey, setAppliedFilterKey] = useState<string>(() => {
+    const v = persisted.appliedFilterKey;
+    return typeof v === "string" ? v : "";
+  });
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [actionsAnchorEl, setActionsAnchorEl] = useState<HTMLElement | null>(null);
   const [actionsTx, setActionsTx] = useState<Tx | null>(null);
@@ -126,10 +140,13 @@ export function AdminTransactionsPage() {
       linkCategoryId,
       linkTagId,
       sortKey,
-      sortDir
+      sortDir,
+      page,
+      pageSize,
+      appliedFilterKey
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-  }, [voided, typeFilter, q, minAmount, maxAmount, linkUserId, linkCategoryId, linkTagId, sortKey, sortDir]);
+  }, [voided, typeFilter, q, minAmount, maxAmount, linkUserId, linkCategoryId, linkTagId, sortKey, sortDir, page, pageSize, appliedFilterKey]);
 
   useEffect(() => {
     const next = new URLSearchParams(searchParams);
@@ -184,7 +201,7 @@ export function AdminTransactionsPage() {
     return map;
   }, [users]);
 
-  function buildParams() {
+  function buildFilterParams() {
     const p: Record<string, any> = {
       start: start.format("YYYY-MM-DD"),
       end: end.format("YYYY-MM-DD"),
@@ -205,7 +222,11 @@ export function AdminTransactionsPage() {
 
   function applyFilters() {
     setSelectedIds(new Set());
-    setAppliedParams(buildParams());
+    const next = buildFilterParams();
+    const nextKey = JSON.stringify(next);
+    if (appliedFilterKey && appliedFilterKey !== nextKey) setPage(0);
+    setAppliedFilters(next);
+    setAppliedFilterKey(nextKey);
   }
 
   function applyLinkedCategory(nextId: number) {
@@ -214,9 +235,12 @@ export function AdminTransactionsPage() {
     next.set("categoryId", String(nextId));
     setSearchParams(next);
     setSelectedIds(new Set());
-    const p = buildParams();
+    setPage(0);
+    const p = buildFilterParams();
     p.category_id = nextId;
-    setAppliedParams(p);
+    const key = JSON.stringify(p);
+    setAppliedFilters(p);
+    setAppliedFilterKey(key);
   }
 
   function applyLinkedTag(nextId: number) {
@@ -225,23 +249,39 @@ export function AdminTransactionsPage() {
     next.set("tagId", String(nextId));
     setSearchParams(next);
     setSelectedIds(new Set());
-    const p = buildParams();
+    setPage(0);
+    const p = buildFilterParams();
     p.tag_id = nextId;
-    setAppliedParams(p);
+    const key = JSON.stringify(p);
+    setAppliedFilters(p);
+    setAppliedFilterKey(key);
   }
 
-  async function load(params: Record<string, any>) {
+  async function load(filters: Record<string, any>) {
+    const params = {
+      ...filters,
+      skip: page * pageSize,
+      limit: pageSize,
+      sort_key: sortKey,
+      sort_dir: sortDir
+    };
     const res = await api.get("/admin/transactions", { params });
     setItems((res.data.items || []) as Tx[]);
+    setTotal(Number(res.data.total || 0));
   }
 
   useEffect(() => {
-    if (!appliedParams) return;
-    load(appliedParams).catch(() => {});
-  }, [appliedParams]);
+    if (!appliedFilters) return;
+    load(appliedFilters).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [appliedFilters, page, pageSize, sortKey, sortDir]);
 
   useEffect(() => {
-    setAppliedParams(buildParams());
+    const filters = buildFilterParams();
+    const key = JSON.stringify(filters);
+    if (appliedFilterKey && appliedFilterKey !== key) setPage(0);
+    setAppliedFilters(filters);
+    setAppliedFilterKey(key);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -255,31 +295,12 @@ export function AdminTransactionsPage() {
   }
 
   const sortedItems = useMemo(() => {
+    if (sortKey !== "categories" && sortKey !== "tags") return items;
     const dir = sortDir === "asc" ? 1 : -1;
     return stableSort(items, (a, b) => {
       let va: string | number = "";
       let vb: string | number = "";
       switch (sortKey) {
-        case "user":
-          va = a.user ? `${a.user.username} (${a.user.email})` : userLabelById.get(a.user_id) ?? `#${a.user_id}`;
-          vb = b.user ? `${b.user.username} (${b.user.email})` : userLabelById.get(b.user_id) ?? `#${b.user_id}`;
-          break;
-        case "occurred_at":
-          va = a.occurred_at;
-          vb = b.occurred_at;
-          break;
-        case "type":
-          va = a.type;
-          vb = b.type;
-          break;
-        case "amount":
-          va = a.amount;
-          vb = b.amount;
-          break;
-        case "currency":
-          va = a.currency;
-          vb = b.currency;
-          break;
         case "categories":
           va = (a.categories || []).map((c) => c.name).join(", ");
           vb = (b.categories || []).map((c) => c.name).join(", ");
@@ -288,15 +309,11 @@ export function AdminTransactionsPage() {
           va = (a.tags || []).map((x) => x.name).join(", ");
           vb = (b.tags || []).map((x) => x.name).join(", ");
           break;
-        case "note":
-          va = a.note || "";
-          vb = b.note || "";
-          break;
       }
       if (typeof va === "number" && typeof vb === "number") return (va - vb) * dir;
       return String(va).localeCompare(String(vb)) * dir;
     });
-  }, [items, sortDir, sortKey, userLabelById]);
+  }, [items, sortDir, sortKey]);
 
   function openActionsMenu(e: React.MouseEvent<HTMLElement>, tx: Tx) {
     setActionsAnchorEl(e.currentTarget);
@@ -312,7 +329,7 @@ export function AdminTransactionsPage() {
     const ok = await confirm({ message: t("confirmDeleteTx"), danger: true });
     if (!ok) return;
     await api.delete(`/admin/transactions/${txId}`);
-    if (appliedParams) await load(appliedParams);
+    if (appliedFilters) await load(appliedFilters);
   }
 
   async function toggleVoided(tx: Tx) {
@@ -322,7 +339,7 @@ export function AdminTransactionsPage() {
     });
     if (!ok) return;
     await api.patch(`/admin/transactions/${tx.id}`, { is_voided: !tx.is_voided });
-    if (appliedParams) await load(appliedParams);
+    if (appliedFilters) await load(appliedFilters);
   }
 
   async function bulk(action: "void" | "restore" | "delete") {
@@ -340,7 +357,7 @@ export function AdminTransactionsPage() {
     if (!ok) return;
     await api.post("/admin/transactions/bulk", { ids, action });
     setSelectedIds(new Set());
-    if (appliedParams) await load(appliedParams);
+    if (appliedFilters) await load(appliedFilters);
   }
 
   return (
@@ -654,6 +671,16 @@ export function AdminTransactionsPage() {
             </TableBody>
           </Table>
         </TableContainer>
+        <PaginationBar
+          page={page}
+          pageSize={pageSize}
+          total={total}
+          onPageChange={(p) => setPage(p)}
+          onPageSizeChange={(n) => {
+            setPage(0);
+            setPageSize(n);
+          }}
+        />
       </Paper>
 
       <Menu
