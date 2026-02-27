@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 
 import type { DashboardData } from "../DashboardPage";
 import PieCard from "./PieCard";
+import { TagTopTables } from "./TopWidgets";
 
 export default function TagsTab({ data }: { data: DashboardData | null }) {
   const { t } = useTranslation();
@@ -30,6 +31,10 @@ export default function TagsTab({ data }: { data: DashboardData | null }) {
             return name;
           }}
         />
+      </Grid>
+
+      <Grid item xs={12}>
+        <TagTopTables data={data} />
       </Grid>
     </Grid>
   );

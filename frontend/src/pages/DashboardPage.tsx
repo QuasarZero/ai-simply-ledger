@@ -37,7 +37,6 @@ export type DashboardData = {
 const OverviewTab = React.lazy(() => import("./dashboard/OverviewTab"));
 const CategoriesTab = React.lazy(() => import("./dashboard/CategoriesTab"));
 const TagsTab = React.lazy(() => import("./dashboard/TagsTab"));
-const TopTab = React.lazy(() => import("./dashboard/TopTab"));
 
 function TabPanel({ value, index, children }: { value: number; index: number; children: React.ReactNode }) {
   if (value !== index) return null;
@@ -108,6 +107,10 @@ export function DashboardPage() {
       .catch(() => setData(null));
   }, [params]);
 
+  useEffect(() => {
+    if (tab > 2) setTab(0);
+  }, [tab]);
+
   return (
     <Stack spacing={2}>
       <Paper sx={{ p: 2 }}>
@@ -170,7 +173,6 @@ export function DashboardPage() {
           <Tab label={t("dashboard")} />
           <Tab label={t("categories")} />
           <Tab label={t("tags")} />
-          <Tab label={t("top10")} />
         </Tabs>
       </Paper>
 
@@ -183,9 +185,6 @@ export function DashboardPage() {
         </TabPanel>
         <TabPanel value={tab} index={2}>
           <TagsTab data={data} />
-        </TabPanel>
-        <TabPanel value={tab} index={3}>
-          <TopTab data={data} />
         </TabPanel>
       </Suspense>
     </Stack>

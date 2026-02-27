@@ -13,6 +13,7 @@ import { useTranslation } from "react-i18next";
 
 import type { DashboardData } from "../DashboardPage";
 import PieCard from "./PieCard";
+import { Top10ExpenseTransactions } from "./TopWidgets";
 
 export default function OverviewTab({ data }: { data: DashboardData | null }) {
   const { t } = useTranslation();
@@ -114,6 +115,8 @@ export default function OverviewTab({ data }: { data: DashboardData | null }) {
           return name;
         }}
       />
+
+      <Top10ExpenseTransactions data={data} />
     </Stack>
   );
 }
