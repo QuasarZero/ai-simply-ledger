@@ -21,6 +21,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 
   const nextIdRef = useRef(1);
   const intervalRef = useRef<number | null>(null);
+  const pinnedIdsRef = useRef<Set<number>>(new Set());
 
   const visibleToasts = useMemo(() => toasts.slice(0, 5), [toasts]);
 
@@ -40,6 +41,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   function close(id: number) {
     setToasts((prev) => prev.filter((t) => t.id !== id));
     setHoveredId((prev) => (prev === id ? null : prev));
+    pinnedIdsRef.current.delete(id);
   }
 
   useEffect(() => {
@@ -55,6 +57,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       intervalRef.current = null;
     }
 
+    const TICK_MS = 16;
     intervalRef.current = window.setInterval(() => {
       setToasts((prev) => {
         if (prev.length === 0) return prev;
@@ -62,14 +65,22 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
         const next = prev
           .map((t) => {
             if (!visibleIds.has(t.id)) return t;
-            if (t.pinned) return t;
-            const remainingMs = t.remainingMs - 50;
+            const isPinned = t.pinned || pinnedIdsRef.current.has(t.id);
+            if (isPinned) return t;
+            const remainingMs = t.remainingMs - TICK_MS;
             return { ...t, remainingMs };
           })
           .filter((t) => t.remainingMs > 0);
+        // keep pinned ref in sync (e.g. auto-expired toasts)
+        if (pinnedIdsRef.current.size > 0) {
+          const nextIds = new Set(next.map((t) => t.id));
+          pinnedIdsRef.current.forEach((id) => {
+            if (!nextIds.has(id)) pinnedIdsRef.current.delete(id);
+          });
+        }
         return next;
       });
-    }, 50);
+    }, TICK_MS);
 
     return () => {
       if (intervalRef.current) {
@@ -95,6 +106,8 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   }, [visibleToasts]);
 
   function pin(id: number) {
+    // Update ref first so the timer sees it immediately (no waiting for React state flush).
+    pinnedIdsRef.current.add(id);
     setToasts((prev) => prev.map((t) => (t.id === id ? { ...t, pinned: true } : t)));
   }
 
@@ -124,11 +137,11 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
               return (
                 <Box
                   key={t.id}
-                  onMouseEnter={() => {
-                    setHoveredId(t.id);
-                    pin(t.id);
-                  }}
-                  onMouseLeave={() => setHoveredId((prev) => (prev === t.id ? null : prev))}
+                  onPointerEnter={() => setHoveredId(t.id)}
+                  onPointerLeave={() => setHoveredId((prev) => (prev === t.id ? null : prev))}
+                  onPointerOver={() => pin(t.id)}
+                  onMouseOver={() => pin(t.id)}
+                  onTouchStart={() => pin(t.id)}
                   sx={{ pointerEvents: "auto" }}
                 >
                   <Alert
