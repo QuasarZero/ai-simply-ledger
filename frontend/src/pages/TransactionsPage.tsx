@@ -1,5 +1,5 @@
 import * as React from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Autocomplete,
   Box,
@@ -22,6 +22,7 @@ import {
   TableCell,
   TableContainer,
   TableHead,
+  TableSortLabel,
   TableRow,
   TextField,
   Typography
@@ -53,6 +54,19 @@ type Tx = {
   categories: Category[];
   tags: Tag[];
 };
+
+type SortDir = "asc" | "desc";
+type SortKey = "occurred_at" | "type" | "amount" | "currency" | "categories" | "tags" | "note";
+
+function stableSort<T>(arr: T[], cmp: (a: T, b: T) => number): T[] {
+  return arr
+    .map((v, i) => ({ v, i }))
+    .sort((a, b) => {
+      const r = cmp(a.v, b.v);
+      return r !== 0 ? r : a.i - b.i;
+    })
+    .map((x) => x.v);
+}
 
 const currencies = ["CNY", "USD", "EUR", "JPY", "HKD", "GBP"];
 const tagFilter = createFilterOptions<TagOption>();
@@ -93,6 +107,8 @@ export function TransactionsPage() {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [actionsAnchorEl, setActionsAnchorEl] = useState<HTMLElement | null>(null);
   const [actionsTx, setActionsTx] = useState<Tx | null>(null);
+  const [sortKey, setSortKey] = useState<SortKey>("occurred_at");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
 
   useEffect(() => {
     const key = "filter:transactions:voided";
@@ -181,6 +197,55 @@ export function TransactionsPage() {
     setAppliedParams(buildParams());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  function requestSort(nextKey: SortKey) {
+    if (sortKey === nextKey) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+      return;
+    }
+    setSortKey(nextKey);
+    setSortDir(nextKey === "occurred_at" || nextKey === "amount" ? "desc" : "asc");
+  }
+
+  const sortedItems = useMemo(() => {
+    const dir = sortDir === "asc" ? 1 : -1;
+    return stableSort(items, (a, b) => {
+      let va: string | number = "";
+      let vb: string | number = "";
+      switch (sortKey) {
+        case "occurred_at":
+          va = a.occurred_at;
+          vb = b.occurred_at;
+          break;
+        case "type":
+          va = a.type;
+          vb = b.type;
+          break;
+        case "amount":
+          va = a.amount;
+          vb = b.amount;
+          break;
+        case "currency":
+          va = a.currency;
+          vb = b.currency;
+          break;
+        case "categories":
+          va = (a.categories || []).map((c) => c.name).join(", ");
+          vb = (b.categories || []).map((c) => c.name).join(", ");
+          break;
+        case "tags":
+          va = (a.tags || []).map((x) => x.name).join(", ");
+          vb = (b.tags || []).map((x) => x.name).join(", ");
+          break;
+        case "note":
+          va = a.note || "";
+          vb = b.note || "";
+          break;
+      }
+      if (typeof va === "number" && typeof vb === "number") return (va - vb) * dir;
+      return String(va).localeCompare(String(vb)) * dir;
+    });
+  }, [items, sortDir, sortKey]);
 
   function openActionsMenu(e: React.MouseEvent<HTMLElement>, tx: Tx) {
     setActionsAnchorEl(e.currentTarget);
@@ -454,18 +519,76 @@ export function TransactionsPage() {
                     }}
                   />
                 </TableCell>
-                <TableCell sx={{width: 110}}>{t("occurredAt")}</TableCell>
-                <TableCell sx={{width: 70}}>{t("type")}</TableCell>
-                <TableCell align="right" sx={{width: 100}}>{t("amount")}</TableCell>
-                <TableCell align="left" sx={{width: 70}}>{t("currency")}</TableCell>
-                <TableCell sx={{width: 150}}>{t("categories")}</TableCell>
-                <TableCell sx={{width: 400}}>{t("tags")}</TableCell>
-                <TableCell sx={{width: 400}}>{t("note")}</TableCell>
+                <TableCell sx={{ width: 110 }} sortDirection={sortKey === "occurred_at" ? sortDir : false}>
+                  <TableSortLabel
+                    active={sortKey === "occurred_at"}
+                    direction={sortKey === "occurred_at" ? sortDir : "asc"}
+                    onClick={() => requestSort("occurred_at")}
+                  >
+                    {t("occurredAt")}
+                  </TableSortLabel>
+                </TableCell>
+                <TableCell sx={{ width: 80 }} sortDirection={sortKey === "type" ? sortDir : false}>
+                  <TableSortLabel
+                    active={sortKey === "type"}
+                    direction={sortKey === "type" ? sortDir : "asc"}
+                    onClick={() => requestSort("type")}
+                  >
+                    {t("type")}
+                  </TableSortLabel>
+                </TableCell>
+                <TableCell align="right" sx={{ width: 100 }} sortDirection={sortKey === "amount" ? sortDir : false}>
+                  <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
+                    <TableSortLabel
+                      active={sortKey === "amount"}
+                      direction={sortKey === "amount" ? sortDir : "asc"}
+                      onClick={() => requestSort("amount")}
+                    >
+                      {t("amount")}
+                    </TableSortLabel>
+                  </Box>
+                </TableCell>
+                <TableCell sx={{ width: 80 }} sortDirection={sortKey === "currency" ? sortDir : false}>
+                  <TableSortLabel
+                    active={sortKey === "currency"}
+                    direction={sortKey === "currency" ? sortDir : "asc"}
+                    onClick={() => requestSort("currency")}
+                  >
+                    {t("currency")}
+                  </TableSortLabel>
+                </TableCell>
+                <TableCell sx={{ width: 150 }} sortDirection={sortKey === "categories" ? sortDir : false}>
+                  <TableSortLabel
+                    active={sortKey === "categories"}
+                    direction={sortKey === "categories" ? sortDir : "asc"}
+                    onClick={() => requestSort("categories")}
+                  >
+                    {t("categories")}
+                  </TableSortLabel>
+                </TableCell>
+                <TableCell sx={{ width: 400 }} sortDirection={sortKey === "tags" ? sortDir : false}>
+                  <TableSortLabel
+                    active={sortKey === "tags"}
+                    direction={sortKey === "tags" ? sortDir : "asc"}
+                    onClick={() => requestSort("tags")}
+                  >
+                    {t("tags")}
+                  </TableSortLabel>
+                </TableCell>
+                <TableCell sx={{ width: 400 }} sortDirection={sortKey === "note" ? sortDir : false}>
+                  <TableSortLabel
+                    active={sortKey === "note"}
+                    direction={sortKey === "note" ? sortDir : "asc"}
+                    onClick={() => requestSort("note")}
+                  >
+                    {t("note")}
+                  </TableSortLabel>
+                </TableCell>
                 <TableCell sx={{width: 120}}>{t("actions")}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
-              {items.map((it) => (
+              {sortedItems.map((it) => (
                 <TableRow key={it.id}>
                   <TableCell padding="checkbox">
                     <Checkbox

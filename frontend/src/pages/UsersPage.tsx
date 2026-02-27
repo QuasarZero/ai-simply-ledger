@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Button,
   ButtonGroup,
@@ -17,6 +17,7 @@ import {
   TableBody,
   TableCell,
   TableHead,
+  TableSortLabel,
   TableRow,
   TextField,
   Typography,
@@ -36,11 +37,25 @@ type User = {
   is_active: boolean;
   created_at: string;
 };
+type SortDir = "asc" | "desc";
+type SortKey = "email" | "username" | "is_admin" | "is_active";
+
+function stableSort<T>(arr: T[], cmp: (a: T, b: T) => number): T[] {
+  return arr
+    .map((v, i) => ({ v, i }))
+    .sort((a, b) => {
+      const r = cmp(a.v, b.v);
+      return r !== 0 ? r : a.i - b.i;
+    })
+    .map((x) => x.v);
+}
 
 export function UsersPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [items, setItems] = useState<User[]>([]);
+  const [sortKey, setSortKey] = useState<SortKey>("username");
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [actionsAnchorEl, setActionsAnchorEl] = useState<HTMLElement | null>(null);
   const [actionsUser, setActionsUser] = useState<User | null>(null);
 
@@ -137,6 +152,43 @@ export function UsersPage() {
     setOpenReset(false);
   }
 
+  function requestSort(nextKey: SortKey) {
+    if (sortKey === nextKey) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+      return;
+    }
+    setSortKey(nextKey);
+    setSortDir("asc");
+  }
+
+  const sortedItems = useMemo(() => {
+    const dir = sortDir === "asc" ? 1 : -1;
+    return stableSort(items, (a, b) => {
+      let va: string | number = "";
+      let vb: string | number = "";
+      switch (sortKey) {
+        case "email":
+          va = a.email;
+          vb = b.email;
+          break;
+        case "username":
+          va = a.username;
+          vb = b.username;
+          break;
+        case "is_admin":
+          va = a.is_admin ? 1 : 0;
+          vb = b.is_admin ? 1 : 0;
+          break;
+        case "is_active":
+          va = a.is_active ? 1 : 0;
+          vb = b.is_active ? 1 : 0;
+          break;
+      }
+      if (typeof va === "number" && typeof vb === "number") return (va - vb) * dir;
+      return String(va).localeCompare(String(vb)) * dir;
+    });
+  }, [items, sortDir, sortKey]);
+
   return (
     <Stack spacing={2}>
       <Paper sx={{ p: 2 }}>
@@ -155,15 +207,47 @@ export function UsersPage() {
           <Table size="small" sx={{ tableLayout: "fixed" }}>
             <TableHead>
               <TableRow>
-                <TableCell sx={{width: 200}}>{t("email")}</TableCell>
-                <TableCell sx={{width: 110}}>{t("username")}</TableCell>
-                <TableCell sx={{width: 80}}>{t("admin")}</TableCell>
-                <TableCell sx={{width: 70}}>{t("active")}</TableCell>
+                <TableCell sx={{ width: 200 }} sortDirection={sortKey === "email" ? sortDir : false}>
+                  <TableSortLabel
+                    active={sortKey === "email"}
+                    direction={sortKey === "email" ? sortDir : "asc"}
+                    onClick={() => requestSort("email")}
+                  >
+                    {t("email")}
+                  </TableSortLabel>
+                </TableCell>
+                <TableCell sx={{ width: 110 }} sortDirection={sortKey === "username" ? sortDir : false}>
+                  <TableSortLabel
+                    active={sortKey === "username"}
+                    direction={sortKey === "username" ? sortDir : "asc"}
+                    onClick={() => requestSort("username")}
+                  >
+                    {t("username")}
+                  </TableSortLabel>
+                </TableCell>
+                <TableCell sx={{ width: 80 }} sortDirection={sortKey === "is_admin" ? sortDir : false}>
+                  <TableSortLabel
+                    active={sortKey === "is_admin"}
+                    direction={sortKey === "is_admin" ? sortDir : "asc"}
+                    onClick={() => requestSort("is_admin")}
+                  >
+                    {t("admin")}
+                  </TableSortLabel>
+                </TableCell>
+                <TableCell sx={{ width: 70 }} sortDirection={sortKey === "is_active" ? sortDir : false}>
+                  <TableSortLabel
+                    active={sortKey === "is_active"}
+                    direction={sortKey === "is_active" ? sortDir : "asc"}
+                    onClick={() => requestSort("is_active")}
+                  >
+                    {t("active")}
+                  </TableSortLabel>
+                </TableCell>
                 <TableCell sx={{width: 120}}>{t("actions")}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
-              {items.map((u) => (
+              {sortedItems.map((u) => (
                 <TableRow key={u.id}>
                   <TableCell>{u.email}</TableCell>
                   <TableCell>

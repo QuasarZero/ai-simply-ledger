@@ -54,7 +54,7 @@ export function Top10ExpenseTransactions({ data }: { data: DashboardData | null 
             <TableRow>
               <TableCell sx={{width: 110}}>{t("occurredAt")}</TableCell>
               <TableCell align="right" sx={{width: 100}}>{t("amount")}</TableCell>
-              <TableCell sx={{width: 70}}>{t("currency")}</TableCell>
+              <TableCell sx={{width: 80}}>{t("currency")}</TableCell>
               <TableCell sx={{width: 150}}>{t("categories")}</TableCell>
               <TableCell sx={{width: 400}}>{t("tags")}</TableCell>
               <TableCell sx={{width: 400}}>{t("note")}</TableCell>
@@ -95,7 +95,7 @@ export function Top10IncomeTransactions({ data }: { data: DashboardData | null }
               <TableCell align="right" sx={{ width: 100 }}>
                 {t("amount")}
               </TableCell>
-              <TableCell sx={{ width: 70 }}>{t("currency")}</TableCell>
+              <TableCell sx={{ width: 80 }}>{t("currency")}</TableCell>
               <TableCell sx={{ width: 150 }}>{t("categories")}</TableCell>
               <TableCell sx={{ width: 400 }}>{t("tags")}</TableCell>
               <TableCell sx={{ width: 400 }}>{t("note")}</TableCell>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Button,
   Dialog,
@@ -11,6 +11,7 @@ import {
   TableBody,
   TableCell,
   TableHead,
+  TableSortLabel,
   TableRow,
   TextField,
   Typography
@@ -23,6 +24,18 @@ import { useConfirm } from "../hooks/useConfirm";
 import { useAuth } from "../auth/AuthContext";
 
 type TagWithUsage = { id: number; name: string; used_count?: number };
+type SortDir = "asc" | "desc";
+type SortKey = "name" | "used_count";
+
+function stableSort<T>(arr: T[], cmp: (a: T, b: T) => number): T[] {
+  return arr
+    .map((v, i) => ({ v, i }))
+    .sort((a, b) => {
+      const r = cmp(a.v, b.v);
+      return r !== 0 ? r : a.i - b.i;
+    })
+    .map((x) => x.v);
+}
 
 export function TagsPage() {
   const { t } = useTranslation();
@@ -30,6 +43,8 @@ export function TagsPage() {
   const { confirm, dialog } = useConfirm();
   const { me } = useAuth();
   const [items, setItems] = useState<TagWithUsage[]>([]);
+  const [sortKey, setSortKey] = useState<SortKey>("used_count");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<TagWithUsage | null>(null);
   const [name, setName] = useState("");
@@ -72,6 +87,23 @@ export function TagsPage() {
     await load();
   }
 
+  function requestSort(nextKey: SortKey) {
+    if (sortKey === nextKey) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+      return;
+    }
+    setSortKey(nextKey);
+    setSortDir(nextKey === "used_count" ? "desc" : "asc");
+  }
+
+  const sortedItems = useMemo(() => {
+    const dir = sortDir === "asc" ? 1 : -1;
+    return stableSort(items, (a, b) => {
+      if (sortKey === "used_count") return (((a.used_count ?? 0) - (b.used_count ?? 0)) * dir);
+      return a.name.localeCompare(b.name) * dir;
+    });
+  }, [items, sortDir, sortKey]);
+
   return (
     <Stack spacing={2}>
       <Paper sx={{ p: 2 }}>
@@ -89,13 +121,29 @@ export function TagsPage() {
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell>{t("tags")}</TableCell>
-              <TableCell>{t("used")}</TableCell>
+              <TableCell sortDirection={sortKey === "name" ? sortDir : false}>
+                <TableSortLabel
+                  active={sortKey === "name"}
+                  direction={sortKey === "name" ? sortDir : "asc"}
+                  onClick={() => requestSort("name")}
+                >
+                  {t("tags")}
+                </TableSortLabel>
+              </TableCell>
+              <TableCell sortDirection={sortKey === "used_count" ? sortDir : false}>
+                <TableSortLabel
+                  active={sortKey === "used_count"}
+                  direction={sortKey === "used_count" ? sortDir : "asc"}
+                  onClick={() => requestSort("used_count")}
+                >
+                  {t("used")}
+                </TableSortLabel>
+              </TableCell>
               <TableCell />
             </TableRow>
           </TableHead>
           <TableBody>
-            {items.map((x) => (
+            {sortedItems.map((x) => (
               <TableRow key={x.id}>
                 <TableCell>
                   <Button

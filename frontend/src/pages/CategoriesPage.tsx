@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Button,
   Dialog,
@@ -11,6 +11,7 @@ import {
   TableBody,
   TableCell,
   TableHead,
+  TableSortLabel,
   TableRow,
   TextField,
   Typography
@@ -23,6 +24,18 @@ import { useConfirm } from "../hooks/useConfirm";
 import { useAuth } from "../auth/AuthContext";
 
 type Category = { id: number; name: string; description?: string | null };
+type SortDir = "asc" | "desc";
+type SortKey = "name" | "description";
+
+function stableSort<T>(arr: T[], cmp: (a: T, b: T) => number): T[] {
+  return arr
+    .map((v, i) => ({ v, i }))
+    .sort((a, b) => {
+      const r = cmp(a.v, b.v);
+      return r !== 0 ? r : a.i - b.i;
+    })
+    .map((x) => x.v);
+}
 
 export function CategoriesPage() {
   const { t } = useTranslation();
@@ -30,6 +43,8 @@ export function CategoriesPage() {
   const { confirm, dialog } = useConfirm();
   const { me } = useAuth();
   const [items, setItems] = useState<Category[]>([]);
+  const [sortKey, setSortKey] = useState<SortKey>("name");
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Category | null>(null);
   const [name, setName] = useState("");
@@ -75,6 +90,24 @@ export function CategoriesPage() {
     await load();
   }
 
+  function requestSort(nextKey: SortKey) {
+    if (sortKey === nextKey) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+      return;
+    }
+    setSortKey(nextKey);
+    setSortDir("asc");
+  }
+
+  const sortedItems = useMemo(() => {
+    const dir = sortDir === "asc" ? 1 : -1;
+    return stableSort(items, (a, b) => {
+      const va = sortKey === "name" ? a.name : (a.description || "");
+      const vb = sortKey === "name" ? b.name : (b.description || "");
+      return String(va).localeCompare(String(vb)) * dir;
+    });
+  }, [items, sortDir, sortKey]);
+
   return (
     <Stack spacing={2}>
       <Paper sx={{ p: 2 }}>
@@ -92,13 +125,29 @@ export function CategoriesPage() {
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell>{t("categories")}</TableCell>
-              <TableCell>{t("note")}</TableCell>
+              <TableCell sortDirection={sortKey === "name" ? sortDir : false}>
+                <TableSortLabel
+                  active={sortKey === "name"}
+                  direction={sortKey === "name" ? sortDir : "asc"}
+                  onClick={() => requestSort("name")}
+                >
+                  {t("categories")}
+                </TableSortLabel>
+              </TableCell>
+              <TableCell sortDirection={sortKey === "description" ? sortDir : false}>
+                <TableSortLabel
+                  active={sortKey === "description"}
+                  direction={sortKey === "description" ? sortDir : "asc"}
+                  onClick={() => requestSort("description")}
+                >
+                  {t("note")}
+                </TableSortLabel>
+              </TableCell>
               <TableCell />
             </TableRow>
           </TableHead>
           <TableBody>
-            {items.map((c) => (
+            {sortedItems.map((c) => (
               <TableRow key={c.id}>
                 <TableCell>
                   <Button
