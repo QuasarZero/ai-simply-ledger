@@ -238,7 +238,7 @@ export function UsersPage() {
   return (
     <Stack spacing={2}>
       <Paper sx={{ p: 2 }}>
-        <Stack direction="row" alignItems="center" spacing={2}>
+        <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 2 }}>
           <Typography variant="h6" sx={{ flexGrow: 1 }}>
             {t("users")}
           </Typography>
@@ -254,9 +254,7 @@ export function UsersPage() {
             {t("create")}
           </Button>
         </Stack>
-      </Paper>
 
-      <Paper sx={{ p: 2 }}>
         <TableContainer sx={{ overflowX: "auto" }}>
           <Table size="small" sx={{ tableLayout: "fixed" }}>
             <TableHead>

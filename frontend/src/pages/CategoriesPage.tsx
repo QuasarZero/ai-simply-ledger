@@ -157,7 +157,7 @@ export function CategoriesPage() {
   return (
     <Stack spacing={2}>
       <Paper sx={{ p: 2 }}>
-        <Stack direction="row" alignItems="center" spacing={2}>
+        <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 2 }}>
           <Typography variant="h6" sx={{ flexGrow: 1 }}>
             {t("categories")}
           </Typography>
@@ -173,9 +173,6 @@ export function CategoriesPage() {
             {t("create")}
           </Button>
         </Stack>
-      </Paper>
-
-      <Paper sx={{ p: 2 }}>
         <Table size="small">
           <TableHead>
             <TableRow>
