@@ -186,6 +186,7 @@ export function TransactionsPage() {
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Tx | null>(null);
+  const [saving, setSaving] = useState(false);
   const [type, setType] = useState<"income" | "expense">("expense");
   const [amount, setAmount] = useState<number>(0);
   const [currency, setCurrency] = useState<string>("CNY");
@@ -368,6 +369,8 @@ export function TransactionsPage() {
   }
 
   async function save() {
+    if (saving) return;
+    setSaving(true);
     const payload = {
       type,
       amount,
@@ -377,18 +380,22 @@ export function TransactionsPage() {
       category_ids: selectedCategories.map((c) => c.id),
       tag_ids: selectedTags.map((x) => x.id)
     };
-    if (editing) {
-      await api.patch(`/transactions/${editing.id}`, payload);
-    } else {
-      await api.post("/transactions", payload);
+    try {
+      if (editing) {
+        await api.patch(`/transactions/${editing.id}`, payload);
+      } else {
+        await api.post("/transactions", payload);
+      }
+      setOpen(false);
+      resetForm();
+      const filters = appliedFilters || buildFilterParams();
+      const key = JSON.stringify(filters);
+      setAppliedFilters(filters);
+      setAppliedFilterKey(key);
+      await load(filters);
+    } finally {
+      setSaving(false);
     }
-    setOpen(false);
-    resetForm();
-    const filters = appliedFilters || buildFilterParams();
-    const key = JSON.stringify(filters);
-    setAppliedFilters(filters);
-    setAppliedFilterKey(key);
-    await load(filters);
   }
 
   async function del(txId: number) {
@@ -785,7 +792,18 @@ export function TransactionsPage() {
         </MenuItem>
       </Menu>
 
-      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog
+        open={open}
+        onClose={() => setOpen(false)}
+        maxWidth="sm"
+        fullWidth
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+            e.preventDefault();
+            save();
+          }
+        }}
+      >
         <DialogTitle>{editing ? t("edit") : t("create")}</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
@@ -871,7 +889,7 @@ export function TransactionsPage() {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpen(false)}>{t("cancel")}</Button>
-          <Button onClick={save} variant="contained">
+          <Button onClick={save} variant="contained" disabled={saving}>
             {t("save")}
           </Button>
         </DialogActions>

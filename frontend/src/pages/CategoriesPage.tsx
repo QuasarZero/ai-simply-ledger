@@ -68,6 +68,7 @@ export function CategoriesPage() {
   const [editing, setEditing] = useState<Category | null>(null);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [saving, setSaving] = useState(false);
 
   async function load() {
     const res = await api.get("/categories");
@@ -107,13 +108,19 @@ export function CategoriesPage() {
   }
 
   async function save() {
-    if (editing) {
-      await api.patch(`/categories/${editing.id}`, { name, description: description || null });
-    } else {
-      await api.post("/categories", { name, description: description || null });
+    if (saving) return;
+    setSaving(true);
+    try {
+      if (editing) {
+        await api.patch(`/categories/${editing.id}`, { name, description: description || null });
+      } else {
+        await api.post("/categories", { name, description: description || null });
+      }
+      setOpen(false);
+      await load();
+    } finally {
+      setSaving(false);
     }
-    setOpen(false);
-    await load();
   }
 
   async function del(id: number) {
@@ -298,7 +305,18 @@ export function CategoriesPage() {
         />
       </Paper>
 
-      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog
+        open={open}
+        onClose={() => setOpen(false)}
+        maxWidth="sm"
+        fullWidth
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+            e.preventDefault();
+            save();
+          }
+        }}
+      >
         <DialogTitle>{editing ? t("edit") : t("create")}</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
@@ -308,7 +326,7 @@ export function CategoriesPage() {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpen(false)}>{t("cancel")}</Button>
-          <Button onClick={save} variant="contained">
+          <Button onClick={save} variant="contained" disabled={saving}>
             {t("save")}
           </Button>
         </DialogActions>

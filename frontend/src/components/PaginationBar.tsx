@@ -74,7 +74,17 @@ export function PaginationBar({
               {n}
             </MenuItem>
           ))}
-          <MenuItem value="custom">{customLabel}</MenuItem>
+          <MenuItem
+            value="custom"
+            onClick={() => {
+              // When current value is already "custom", selecting it again won't trigger onChange.
+              if (selectValue === "custom") {
+                setTimeout(() => openDialog(), 0);
+              }
+            }}
+          >
+            {customLabel}
+          </MenuItem>
         </TextField>
         <Button variant="outlined" size="small" onClick={() => onPageChange(0)} disabled={page === 0}>
           {t("page")} 1
@@ -92,6 +102,12 @@ export function PaginationBar({
             fullWidth
             value={customValue}
             onChange={(e) => setCustomValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+                e.preventDefault();
+                saveCustom();
+              }
+            }}
             inputProps={{ min: 1, max: maxPageSize, step: 1 }}
           />
         </DialogContent>
@@ -105,4 +121,3 @@ export function PaginationBar({
     </Box>
   );
 }
-

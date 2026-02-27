@@ -82,6 +82,7 @@ export function UsersPage() {
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<User | null>(null);
+  const [saving, setSaving] = useState(false);
 
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
@@ -137,6 +138,9 @@ export function UsersPage() {
   }
 
   async function save() {
+    if (saving) return;
+    setSaving(true);
+    try {
     if (editing) {
       await api.patch(`/admin/users/${editing.id}`, {
         email,
@@ -158,6 +162,9 @@ export function UsersPage() {
     }
     setOpen(false);
     await load();
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function del(id: number) {
@@ -372,8 +379,8 @@ export function UsersPage() {
                       {u.username}
                     </Button>
                   </TableCell>
-                  <TableCell>{u.is_admin ? "Y" : ""}</TableCell>
-                  <TableCell>{u.is_active ? "Y" : ""}</TableCell>
+                  <TableCell>{u.is_admin ? "✓" : ""}</TableCell>
+                  <TableCell>{u.is_active ? "✓" : ""}</TableCell>
                   <TableCell align="left">
                     <ButtonGroup variant="outlined" size="small">
                       <Button onClick={() => openEdit(u)}>{t("edit")}</Button>
@@ -431,7 +438,18 @@ export function UsersPage() {
         </MenuItem>
       </Menu>
 
-      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog
+        open={open}
+        onClose={() => setOpen(false)}
+        maxWidth="sm"
+        fullWidth
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+            e.preventDefault();
+            save();
+          }
+        }}
+      >
         <DialogTitle>{editing ? t("edit") : t("create")}</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
@@ -456,13 +474,24 @@ export function UsersPage() {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpen(false)}>{t("cancel")}</Button>
-          <Button onClick={save} variant="contained">
+          <Button onClick={save} variant="contained" disabled={saving}>
             {t("save")}
           </Button>
         </DialogActions>
       </Dialog>
 
-      <Dialog open={openReset} onClose={() => setOpenReset(false)} maxWidth="xs" fullWidth>
+      <Dialog
+        open={openReset}
+        onClose={() => setOpenReset(false)}
+        maxWidth="xs"
+        fullWidth
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+            e.preventDefault();
+            doReset();
+          }
+        }}
+      >
         <DialogTitle>{t("resetPasswordTitle")}</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>

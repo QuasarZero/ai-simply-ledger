@@ -67,6 +67,7 @@ export function TagsPage() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<TagWithUsage | null>(null);
   const [name, setName] = useState("");
+  const [saving, setSaving] = useState(false);
 
   async function load() {
     const res = await api.get("/tags");
@@ -104,13 +105,19 @@ export function TagsPage() {
   }
 
   async function save() {
-    if (editing) {
-      await api.patch(`/tags/${editing.id}`, { name });
-    } else {
-      await api.post("/tags", { name });
+    if (saving) return;
+    setSaving(true);
+    try {
+      if (editing) {
+        await api.patch(`/tags/${editing.id}`, { name });
+      } else {
+        await api.post("/tags", { name });
+      }
+      setOpen(false);
+      await load();
+    } finally {
+      setSaving(false);
     }
-    setOpen(false);
-    await load();
   }
 
   async function del(id: number) {
@@ -288,7 +295,18 @@ export function TagsPage() {
         />
       </Paper>
 
-      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog
+        open={open}
+        onClose={() => setOpen(false)}
+        maxWidth="sm"
+        fullWidth
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+            e.preventDefault();
+            save();
+          }
+        }}
+      >
         <DialogTitle>{editing ? t("edit") : t("create")}</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
@@ -297,7 +315,7 @@ export function TagsPage() {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpen(false)}>{t("cancel")}</Button>
-          <Button onClick={save} variant="contained">
+          <Button onClick={save} variant="contained" disabled={saving}>
             {t("save")}
           </Button>
         </DialogActions>
