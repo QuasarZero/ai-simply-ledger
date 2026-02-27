@@ -137,6 +137,28 @@ export function TransactionsPage() {
     setAppliedParams(buildParams());
   }
 
+  function applyLinkedCategory(nextId: number) {
+    setLinkCategoryId(nextId);
+    const next = new URLSearchParams(searchParams);
+    next.set("categoryId", String(nextId));
+    setSearchParams(next);
+    setSelectedIds(new Set());
+    const p = buildParams();
+    p.category_id = nextId;
+    setAppliedParams(p);
+  }
+
+  function applyLinkedTag(nextId: number) {
+    setLinkTagId(nextId);
+    const next = new URLSearchParams(searchParams);
+    next.set("tagId", String(nextId));
+    setSearchParams(next);
+    setSelectedIds(new Set());
+    const p = buildParams();
+    p.tag_id = nextId;
+    setAppliedParams(p);
+  }
+
   async function load(params: Record<string, any>) {
     const res = await api.get("/transactions", { params });
     setItems((res.data.items || []) as Tx[]);
@@ -447,12 +469,26 @@ export function TransactionsPage() {
                 <TableCell>{it.currency}</TableCell>
                 <TableCell>
                   {it.categories.map((c) => (
-                    <Chip key={c.id} label={c.name} size="small" sx={{ mr: 0.5, mb: 0.5 }} />
+                    <Chip
+                      key={c.id}
+                      label={c.name}
+                      size="small"
+                      clickable
+                      onClick={() => applyLinkedCategory(c.id)}
+                      sx={{ mr: 0.5, mb: 0.5 }}
+                    />
                   ))}
                 </TableCell>
                 <TableCell>
                   {it.tags.map((x) => (
-                    <Chip key={x.id} label={x.name} size="small" sx={{ mr: 0.5, mb: 0.5 }} />
+                    <Chip
+                      key={x.id}
+                      label={x.name}
+                      size="small"
+                      clickable
+                      onClick={() => applyLinkedTag(x.id)}
+                      sx={{ mr: 0.5, mb: 0.5 }}
+                    />
                   ))}
                 </TableCell>
                 <TableCell sx={{ maxWidth: 260, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
