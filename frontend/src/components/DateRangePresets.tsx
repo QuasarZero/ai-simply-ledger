@@ -10,11 +10,13 @@ export type PresetKey =
   | "last7"
   | "thisWeek"
   | "thisMonth"
+  | "thisYear"
   | "lastMonth"
   | "last3Months"
   | "last6Months"
   | "last1Year"
   | "lastYear"
+  | "all"
   | "custom";
 
 function computeRange(preset: PresetKey, now: Dayjs): { start: Dayjs; end: Dayjs } | null {
@@ -34,6 +36,8 @@ function computeRange(preset: PresetKey, now: Dayjs): { start: Dayjs; end: Dayjs
       return { start: today.startOf("isoWeek"), end: today.endOf("isoWeek").startOf("day") };
     case "thisMonth":
       return { start: today.startOf("month"), end: today.endOf("month").startOf("day") };
+    case "thisYear":
+      return { start: today.startOf("year"), end: today };
     case "lastMonth": {
       const last = today.subtract(1, "month");
       return { start: last.startOf("month"), end: last.endOf("month").startOf("day") };
@@ -48,6 +52,7 @@ function computeRange(preset: PresetKey, now: Dayjs): { start: Dayjs; end: Dayjs
       const last = today.subtract(1, "year");
       return { start: last.startOf("year"), end: last.endOf("year").startOf("day") };
     }
+    case "all":
     case "custom":
     default:
       return null;
@@ -78,7 +83,9 @@ export function DateRangePresets({
     { key: "last3Months", label: t("presetLast3Months") },
     { key: "last6Months", label: t("presetLast6Months") },
     { key: "last1Year", label: t("presetLast1Year") },
+    { key: "thisYear", label: t("presetThisYear") },
     { key: "lastYear", label: t("presetLastYear") },
+    { key: "all", label: t("presetAll") },
     { key: "custom", label: t("presetCustom") }
   ];
 
@@ -108,4 +115,3 @@ export function DateRangePresets({
     </TextField>
   );
 }
-

@@ -13,6 +13,7 @@ import {
   DialogContent,
   DialogTitle,
   FormControlLabel,
+  LinearProgress,
   Menu,
   MenuItem,
   Paper,
@@ -92,6 +93,8 @@ export function TransactionsPage() {
   const [total, setTotal] = useState<number>(0);
   const [categories, setCategories] = useState<Category[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
+  const [loadingMeta, setLoadingMeta] = useState(false);
+  const [loadingList, setLoadingList] = useState(false);
   const persisted = useMemo(() => safeParseJson<Record<string, any>>(STORAGE_KEY) || {}, []);
 
   const { preset, setPreset, start, setStart, end, setEnd } = usePersistedDateRange(
@@ -205,17 +208,24 @@ export function TransactionsPage() {
   const fieldValueTimers = React.useRef<Record<number, any>>({});
 
   async function loadMeta() {
-    const [cRes, tRes] = await Promise.all([api.get("/categories"), api.get("/tags")]);
-    setCategories(cRes.data as Category[]);
-    setTags(tRes.data as Tag[]);
+    setLoadingMeta(true);
+    try {
+      const [cRes, tRes] = await Promise.all([api.get("/categories"), api.get("/tags")]);
+      setCategories(cRes.data as Category[]);
+      setTags(tRes.data as Tag[]);
+    } finally {
+      setLoadingMeta(false);
+    }
   }
 
   function buildFilterParams() {
     const p: Record<string, any> = {
-      start: start.format("YYYY-MM-DD"),
-      end: end.format("YYYY-MM-DD"),
       voided: voided ? true : undefined
     };
+    if (preset !== "all") {
+      p.start = start.format("YYYY-MM-DD");
+      p.end = end.format("YYYY-MM-DD");
+    }
     const query = q.trim();
     if (query) p.q = query;
     if (typeFilter !== "all") p.type = typeFilter;
@@ -266,6 +276,7 @@ export function TransactionsPage() {
   }
 
   async function load(filters: Record<string, any>) {
+    setLoadingList(true);
     const params = {
       ...filters,
       skip: page * pageSize,
@@ -273,9 +284,13 @@ export function TransactionsPage() {
       sort_key: sortKey,
       sort_dir: sortDir
     };
-    const res = await api.get("/transactions", { params });
-    setItems((res.data.items || []) as Tx[]);
-    setTotal(Number(res.data.total || 0));
+    try {
+      const res = await api.get("/transactions", { params });
+      setItems((res.data.items || []) as Tx[]);
+      setTotal(Number(res.data.total || 0));
+    } finally {
+      setLoadingList(false);
+    }
   }
 
   useEffect(() => {
@@ -542,6 +557,7 @@ export function TransactionsPage() {
   return (
     <Stack spacing={2}>
       <Paper sx={{ p: 2 }}>
+        {loadingMeta ? <LinearProgress sx={{ mb: 2 }} /> : null}
         <Box
           component="form"
           onSubmit={(e) => {
@@ -559,6 +575,7 @@ export function TransactionsPage() {
             <DatePicker
               label={t("startDate")}
               value={start}
+              disabled={preset === "all"}
               onChange={(v) => {
                 if (!v) return;
                 setPreset("custom");
@@ -568,6 +585,7 @@ export function TransactionsPage() {
             <DatePicker
               label={t("endDate")}
               value={end}
+              disabled={preset === "all"}
               onChange={(v) => {
                 if (!v) return;
                 setPreset("custom");
@@ -649,6 +667,7 @@ export function TransactionsPage() {
       </Paper>
 
       <Paper sx={{ p: 2 }}>
+        {loadingList ? <LinearProgress sx={{ mb: 1 }} /> : null}
         <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 1 }}>
           <Typography variant="h6">
             {t("transactions")} ({total})

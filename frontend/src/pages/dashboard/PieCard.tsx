@@ -2,6 +2,7 @@ import * as React from "react";
 import { Box, Paper, Typography } from "@mui/material";
 import { Cell, Pie, PieChart, ResponsiveContainer, Sector, Tooltip } from "recharts";
 import { PIE_COLORS } from "./chartColors";
+import { formatMoney } from "../../formatMoney";
 
 type Slice = { id: number; name: string; value: number };
 
@@ -95,7 +96,7 @@ function renderActiveSlice(props: any) {
       })}
       {/* keep tooltip-friendly semantics */}
       <title>
-        {payload?.name}: {value}
+        {payload?.name}: {Number.isInteger(value) ? String(value) : formatMoney(Number(value))}
       </title>
     </g>
   );
@@ -205,7 +206,7 @@ export default function PieCard({
                 );
               })}
             </Pie>
-            <Tooltip />
+            <Tooltip formatter={(v: any) => (Number.isInteger(Number(v)) ? String(Math.round(Number(v))) : formatMoney(Number(v)))} />
           </PieChart>
         </ResponsiveContainer>
       </Box>

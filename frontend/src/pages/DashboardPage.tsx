@@ -1,6 +1,6 @@
 import * as React from "react";
 import { Suspense, useEffect, useMemo, useState } from "react";
-import { Autocomplete, Box, Paper, Stack, Tab, Tabs, TextField, Typography } from "@mui/material";
+import { Autocomplete, Box, LinearProgress, Paper, Stack, Tab, Tabs, TextField, Typography } from "@mui/material";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { useTranslation } from "react-i18next";
 
@@ -8,6 +8,7 @@ import { api } from "../api/client";
 import { DateRangePresets } from "../components/DateRangePresets";
 import { usePersistedDateRange } from "../hooks/usePersistedDateRange";
 import { useAuth } from "../auth/AuthContext";
+import { formatMoney } from "../formatMoney";
 
 export type DashboardData = {
   requested_user_id?: number | null;
@@ -58,6 +59,7 @@ export function DashboardPage() {
   const { t } = useTranslation();
   const { me } = useAuth();
   const [data, setData] = useState<DashboardData | null>(null);
+  const [loading, setLoading] = useState(false);
   const [tab, setTab] = useState(0);
   const { preset, setPreset, start, setStart, end, setEnd } = usePersistedDateRange(
     "dateRange:dashboard",
@@ -101,21 +103,27 @@ export function DashboardPage() {
     return userOptions.find((o) => o.id === selectedUserId) || userOptions[0] || null;
   }, [isAdmin, selectedUserId, userOptions]);
 
-  const params = useMemo(
-    () => ({
-      start: start.format("YYYY-MM-DD"),
-      end: end.format("YYYY-MM-DD"),
+  const params = useMemo(() => {
+    const p: Record<string, any> = {
       base_currency: "CNY",
       user_id: isAdmin ? selectedUserId : undefined
-    }),
-    [start, end, isAdmin, selectedUserId]
-  );
+    };
+    if (preset === "all") {
+      p.all = true;
+    } else {
+      p.start = start.format("YYYY-MM-DD");
+      p.end = end.format("YYYY-MM-DD");
+    }
+    return p;
+  }, [start, end, isAdmin, selectedUserId, preset]);
 
   useEffect(() => {
+    setLoading(true);
     api
       .get("/stats/dashboard", { params })
       .then((r) => setData(r.data as DashboardData))
-      .catch(() => setData(null));
+      .catch(() => setData(null))
+      .finally(() => setLoading(false));
   }, [params]);
 
   useEffect(() => {
@@ -125,6 +133,7 @@ export function DashboardPage() {
   return (
     <Stack spacing={2}>
       <Paper sx={{ p: 2 }}>
+        {loading ? <LinearProgress sx={{ mb: 2 }} /> : null}
         <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
           <DateRangePresets
             value={preset}
@@ -135,6 +144,7 @@ export function DashboardPage() {
           <DatePicker
             label={t("startDate")}
             value={start}
+            disabled={preset === "all"}
             onChange={(v) => {
               if (!v) return;
               setPreset("custom");
@@ -144,6 +154,7 @@ export function DashboardPage() {
           <DatePicker
             label={t("endDate")}
             value={end}
+            disabled={preset === "all"}
             onChange={(v) => {
               if (!v) return;
               setPreset("custom");
@@ -168,13 +179,13 @@ export function DashboardPage() {
             </Typography>
           ) : null}
           <Typography>
-            {t("income")}: {data?.totals.income?.toFixed(2) ?? "-"} {data?.totals.currency ?? "CNY"}
+            {t("income")}: {data ? formatMoney(data.totals.income) : "-"} {data?.totals.currency ?? "CNY"}
           </Typography>
           <Typography>
-            {t("expense")}: {data?.totals.expense?.toFixed(2) ?? "-"} {data?.totals.currency ?? "CNY"}
+            {t("expense")}: {data ? formatMoney(data.totals.expense) : "-"} {data?.totals.currency ?? "CNY"}
           </Typography>
           <Typography>
-            {t("net")}: {data?.totals.net?.toFixed(2) ?? "-"} {data?.totals.currency ?? "CNY"}
+            {t("net")}: {data ? formatMoney(data.totals.net) : "-"} {data?.totals.currency ?? "CNY"}
           </Typography>
         </Stack>
       </Paper>
@@ -189,13 +200,13 @@ export function DashboardPage() {
 
       <Suspense fallback={<Paper sx={{ p: 2 }}>{t("loading")}</Paper>}>
         <TabPanel value={tab} index={0}>
-          <OverviewTab data={data} />
+          {loading ? <Paper sx={{ p: 2 }}>{t("loading")}</Paper> : <OverviewTab data={data} />}
         </TabPanel>
         <TabPanel value={tab} index={1}>
-          <CategoriesTab data={data} />
+          {loading ? <Paper sx={{ p: 2 }}>{t("loading")}</Paper> : <CategoriesTab data={data} />}
         </TabPanel>
         <TabPanel value={tab} index={2}>
-          <TagsTab data={data} />
+          {loading ? <Paper sx={{ p: 2 }}>{t("loading")}</Paper> : <TagsTab data={data} />}
         </TabPanel>
       </Suspense>
     </Stack>

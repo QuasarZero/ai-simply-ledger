@@ -2,6 +2,7 @@ import { Grid, Paper, Table, TableBody, TableCell, TableContainer, TableHead, Ta
 import { useTranslation } from "react-i18next";
 
 import dayjs from "../../dayjs";
+import { formatMoney } from "../../formatMoney";
 import type { DashboardData } from "../DashboardPage";
 
 export function TopTable({
@@ -31,7 +32,7 @@ export function TopTable({
             <TableRow key={idx}>
               <TableCell>{r.name}</TableCell>
               <TableCell align="right">
-                {format === "count" ? String(Math.round(r.value)) : r.value.toFixed(2)}
+                {format === "count" ? String(Math.round(r.value)) : formatMoney(r.value)}
               </TableCell>
             </TableRow>
           ))}
@@ -62,9 +63,9 @@ export function Top10ExpenseTransactions({ data }: { data: DashboardData | null 
           </TableHead>
           <TableBody>
             {(data?.top_expense_transactions ?? []).map((x) => (
-              <TableRow key={x.id}>
-                <TableCell>{dayjs(x.occurred_at).format("YYYY-MM-DD")}</TableCell>
-                <TableCell align="right">-{x.amount_base.toFixed(2)}</TableCell>
+                <TableRow key={x.id}>
+                  <TableCell>{dayjs(x.occurred_at).format("YYYY-MM-DD")}</TableCell>
+                <TableCell align="right">-{formatMoney(x.amount_base)}</TableCell>
                 <TableCell>{x.currency}</TableCell>
                 <TableCell>{(x.categories || []).join(", ")}</TableCell>
                 <TableCell>{(x.tags || []).join(", ")}</TableCell>
@@ -103,9 +104,9 @@ export function Top10IncomeTransactions({ data }: { data: DashboardData | null }
           </TableHead>
           <TableBody>
             {(data?.top_income_transactions ?? []).map((x) => (
-              <TableRow key={x.id}>
-                <TableCell>{dayjs(x.occurred_at).format("YYYY-MM-DD")}</TableCell>
-                <TableCell align="right">+{x.amount_base.toFixed(2)}</TableCell>
+                <TableRow key={x.id}>
+                  <TableCell>{dayjs(x.occurred_at).format("YYYY-MM-DD")}</TableCell>
+                <TableCell align="right">+{formatMoney(x.amount_base)}</TableCell>
                 <TableCell>{x.currency}</TableCell>
                 <TableCell>{(x.categories || []).join(", ")}</TableCell>
                 <TableCell>{(x.tags || []).join(", ")}</TableCell>

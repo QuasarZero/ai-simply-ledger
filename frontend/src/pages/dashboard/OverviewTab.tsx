@@ -14,6 +14,7 @@ import { useTranslation } from "react-i18next";
 import type { DashboardData } from "../DashboardPage";
 import PieCard from "./PieCard";
 import { Top10ExpenseTransactions, Top10IncomeTransactions } from "./TopWidgets";
+import { formatMoney } from "../../formatMoney";
 
 export default function OverviewTab({ data }: { data: DashboardData | null }) {
   const { t } = useTranslation();
@@ -34,7 +35,7 @@ export default function OverviewTab({ data }: { data: DashboardData | null }) {
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="date" />
               <YAxis />
-              <Tooltip />
+              <Tooltip formatter={(v: any) => formatMoney(Number(v))} />
               <Line
                 type="monotone"
                 dataKey="income"

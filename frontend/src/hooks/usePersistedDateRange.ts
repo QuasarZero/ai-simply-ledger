@@ -57,4 +57,3 @@ export function usePersistedDateRange(storageKey: string, defaultLastDays = 30) 
 
   return { preset, setPreset, start, setStart, end, setEnd };
 }
-

@@ -11,6 +11,7 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  LinearProgress,
   Paper,
   FormControlLabel,
   Stack,
@@ -78,6 +79,8 @@ export function AdminTransactionsPage() {
   const [items, setItems] = useState<Tx[]>([]);
   const [total, setTotal] = useState<number>(0);
   const [users, setUsers] = useState<User[]>([]);
+  const [loadingMeta, setLoadingMeta] = useState(false);
+  const [loadingList, setLoadingList] = useState(false);
   const persisted = useMemo(() => safeParseJson<Record<string, any>>(STORAGE_KEY) || {}, []);
   const { preset, setPreset, start, setStart, end, setEnd } = usePersistedDateRange(
     "dateRange:adminTransactions",
@@ -194,13 +197,15 @@ export function AdminTransactionsPage() {
   }, [linkUserId, linkCategoryId, linkTagId, searchParams, setSearchParams]);
 
   useEffect(() => {
+    setLoadingMeta(true);
     Promise.all([api.get("/categories"), api.get("/tags"), api.get("/admin/users")])
       .then(([c, tg, u]) => {
         setCategories((c.data || []) as Category[]);
         setTags((tg.data || []) as Tag[]);
         setUsers((u.data || []) as User[]);
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setLoadingMeta(false));
   }, []);
 
   const userLabelById = useMemo(() => {
@@ -211,11 +216,13 @@ export function AdminTransactionsPage() {
 
   function buildFilterParams() {
     const p: Record<string, any> = {
-      start: start.format("YYYY-MM-DD"),
-      end: end.format("YYYY-MM-DD"),
       user_id: linkUserId ?? undefined,
       voided: voided ? true : undefined
     };
+    if (preset !== "all") {
+      p.start = start.format("YYYY-MM-DD");
+      p.end = end.format("YYYY-MM-DD");
+    }
     const query = q.trim();
     if (query) p.q = query;
     if (typeFilter !== "all") p.type = typeFilter;
@@ -266,6 +273,7 @@ export function AdminTransactionsPage() {
   }
 
   async function load(filters: Record<string, any>) {
+    setLoadingList(true);
     const params = {
       ...filters,
       skip: page * pageSize,
@@ -273,9 +281,13 @@ export function AdminTransactionsPage() {
       sort_key: sortKey,
       sort_dir: sortDir
     };
-    const res = await api.get("/admin/transactions", { params });
-    setItems((res.data.items || []) as Tx[]);
-    setTotal(Number(res.data.total || 0));
+    try {
+      const res = await api.get("/admin/transactions", { params });
+      setItems((res.data.items || []) as Tx[]);
+      setTotal(Number(res.data.total || 0));
+    } finally {
+      setLoadingList(false);
+    }
   }
 
   useEffect(() => {
@@ -393,6 +405,7 @@ export function AdminTransactionsPage() {
   return (
     <Stack spacing={2}>
       <Paper sx={{ p: 2 }}>
+        {loadingMeta ? <LinearProgress sx={{ mb: 2 }} /> : null}
         <Box
           component="form"
           onSubmit={(e) => {
@@ -410,6 +423,7 @@ export function AdminTransactionsPage() {
             <DatePicker
               label={t("startDate")}
               value={start}
+              disabled={preset === "all"}
               onChange={(v) => {
                 if (!v) return;
                 setPreset("custom");
@@ -419,6 +433,7 @@ export function AdminTransactionsPage() {
             <DatePicker
               label={t("endDate")}
               value={end}
+              disabled={preset === "all"}
               onChange={(v) => {
                 if (!v) return;
                 setPreset("custom");
@@ -513,6 +528,7 @@ export function AdminTransactionsPage() {
       </Paper>
 
       <Paper sx={{ p: 2 }}>
+        {loadingList ? <LinearProgress sx={{ mb: 1 }} /> : null}
         <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 1 }}>
           <Typography variant="h6">
             {t("adminTransactions")} ({total})

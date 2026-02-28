@@ -9,6 +9,7 @@ import {
   DialogContent,
   DialogTitle,
   FormControlLabel,
+  LinearProgress,
   Menu,
   MenuItem,
   Paper,
@@ -61,6 +62,7 @@ export function UsersPage() {
   const navigate = useNavigate();
   const { confirm, dialog } = useConfirm();
   const [items, setItems] = useState<User[]>([]);
+  const [loading, setLoading] = useState(false);
   const persisted = useMemo(() => safeParseJson<Record<string, any>>(STORAGE_KEY) || {}, []);
   const [q, setQ] = useState<string>(() => (typeof persisted.q === "string" ? persisted.q : ""));
   const [sortKey, setSortKey] = useState<SortKey>(() => {
@@ -95,9 +97,14 @@ export function UsersPage() {
   const [resetPassword, setResetPassword] = useState("");
 
   async function load() {
-    const res = await api.get("/admin/users");
-    setItems(res.data as User[]);
-    setSelectedIds(new Set());
+    setLoading(true);
+    try {
+      const res = await api.get("/admin/users");
+      setItems(res.data as User[]);
+      setSelectedIds(new Set());
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => {
@@ -265,6 +272,7 @@ export function UsersPage() {
   return (
     <Stack spacing={2}>
       <Paper sx={{ p: 2 }}>
+        {loading ? <LinearProgress sx={{ mb: 2 }} /> : null}
         <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 2 }}>
           <Typography variant="h6">
             {t("users")} ({sortedItems.length})

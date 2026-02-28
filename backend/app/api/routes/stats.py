@@ -36,24 +36,26 @@ def summary(
     current_user: User = Depends(get_current_user),
     start: date | None = None,
     end: date | None = None,
+    all: bool = False,
     base_currency: str = "CNY",
     user_id: int | None = None,
 ):
     base_currency = base_currency.upper()
-    if not start:
-        start = (datetime.now(settings.tzinfo) - timedelta(days=30)).date()
-    if not end:
-        end = datetime.now(settings.tzinfo).date()
-
-    start_dt = datetime.combine(start, datetime.min.time()).replace(tzinfo=settings.tzinfo)
-    end_dt = datetime.combine(end, datetime.max.time()).replace(tzinfo=settings.tzinfo)
+    if not all:
+        if not start:
+            start = (datetime.now(settings.tzinfo) - timedelta(days=30)).date()
+        if not end:
+            end = datetime.now(settings.tzinfo).date()
 
     query = (
         db.query(Transaction)
         .options(joinedload(Transaction.categories))
         .filter(Transaction.is_voided.is_(False))
-        .filter(Transaction.occurred_at >= start_dt, Transaction.occurred_at <= end_dt)
     )
+    if not all:
+        start_dt = datetime.combine(start, datetime.min.time()).replace(tzinfo=settings.tzinfo)
+        end_dt = datetime.combine(end, datetime.max.time()).replace(tzinfo=settings.tzinfo)
+        query = query.filter(Transaction.occurred_at >= start_dt, Transaction.occurred_at <= end_dt)
     if current_user.is_admin and user_id is not None:
         if user_id != 0:
             query = query.filter(Transaction.user_id == user_id)
@@ -88,11 +90,15 @@ def summary(
                 by_category[c.id]["expense"] += amt
 
     days: list[ByDay] = []
-    cursor = start
-    while cursor <= end:
-        k = cursor.isoformat()
-        days.append(ByDay(date=k, income=by_day[k]["income"], expense=by_day[k]["expense"]))
-        cursor = cursor + timedelta(days=1)
+    if all:
+        for k in sorted(by_day.keys()):
+            days.append(ByDay(date=k, income=by_day[k]["income"], expense=by_day[k]["expense"]))
+    else:
+        cursor = start
+        while cursor <= end:
+            k = cursor.isoformat()
+            days.append(ByDay(date=k, income=by_day[k]["income"], expense=by_day[k]["expense"]))
+            cursor = cursor + timedelta(days=1)
 
     cats_out = [
         ByCategory(
@@ -151,24 +157,26 @@ def dashboard(
     current_user: User = Depends(get_current_user),
     start: date | None = None,
     end: date | None = None,
+    all: bool = False,
     base_currency: str = "CNY",
     user_id: int | None = None,
 ):
     base_currency = base_currency.upper()
-    if not start:
-        start = (datetime.now(settings.tzinfo) - timedelta(days=30)).date()
-    if not end:
-        end = datetime.now(settings.tzinfo).date()
-
-    start_dt = datetime.combine(start, datetime.min.time()).replace(tzinfo=settings.tzinfo)
-    end_dt = datetime.combine(end, datetime.max.time()).replace(tzinfo=settings.tzinfo)
+    if not all:
+        if not start:
+            start = (datetime.now(settings.tzinfo) - timedelta(days=30)).date()
+        if not end:
+            end = datetime.now(settings.tzinfo).date()
 
     query = (
         db.query(Transaction)
         .options(joinedload(Transaction.categories), joinedload(Transaction.tags))
         .filter(Transaction.is_voided.is_(False))
-        .filter(Transaction.occurred_at >= start_dt, Transaction.occurred_at <= end_dt)
     )
+    if not all:
+        start_dt = datetime.combine(start, datetime.min.time()).replace(tzinfo=settings.tzinfo)
+        end_dt = datetime.combine(end, datetime.max.time()).replace(tzinfo=settings.tzinfo)
+        query = query.filter(Transaction.occurred_at >= start_dt, Transaction.occurred_at <= end_dt)
     requested_user_id = user_id
     effective_user_id: int | None
     if current_user.is_admin and user_id is not None:
@@ -248,11 +256,15 @@ def dashboard(
             )
 
     days: list[ByDay] = []
-    cursor = start
-    while cursor <= end:
-        k = cursor.isoformat()
-        days.append(ByDay(date=k, income=by_day[k]["income"], expense=by_day[k]["expense"]))
-        cursor = cursor + timedelta(days=1)
+    if all:
+        for k in sorted(by_day.keys()):
+            days.append(ByDay(date=k, income=by_day[k]["income"], expense=by_day[k]["expense"]))
+    else:
+        cursor = start
+        while cursor <= end:
+            k = cursor.isoformat()
+            days.append(ByDay(date=k, income=by_day[k]["income"], expense=by_day[k]["expense"]))
+            cursor = cursor + timedelta(days=1)
 
     totals = Totals(
         income=totals_income,
