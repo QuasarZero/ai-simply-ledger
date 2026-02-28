@@ -178,6 +178,7 @@ export function CategoriesPage() {
       const res = await api.get(`/categories/${fieldsCategory.id}/fields`);
       setFields((res.data || []) as CategoryField[]);
       openCreateField();
+      await load();
     } finally {
       setFieldSaving(false);
     }
@@ -190,6 +191,7 @@ export function CategoriesPage() {
     await api.delete(`/category-fields/${id}`);
     const res = await api.get(`/categories/${fieldsCategory.id}/fields`);
     setFields((res.data || []) as CategoryField[]);
+    await load();
   }
 
   async function save() {
