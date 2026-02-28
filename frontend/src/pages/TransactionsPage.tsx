@@ -61,7 +61,11 @@ type Tx = {
 };
 
 type SortDir = "asc" | "desc";
-type SortKey = "occurred_at" | "type" | "amount" | "currency" | "categories" | "tags" | "note";
+type SortKey = "occurred_at" | "type" | "amount" | "currency" | "categories" | "tags" | "note" | `field:${number}`;
+
+function isFieldSortKey(v: unknown): v is `field:${number}` {
+  return typeof v === "string" && /^field:\d+$/.test(v);
+}
 
 function stableSort<T>(arr: T[], cmp: (a: T, b: T) => number): T[] {
   return arr
@@ -144,8 +148,10 @@ export function TransactionsPage() {
   const [bulkSaving, setBulkSaving] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>(() => {
     const v = persisted.sortKey;
-    const keys: SortKey[] = ["occurred_at", "type", "amount", "currency", "categories", "tags", "note"];
-    return typeof v === "string" && keys.includes(v as SortKey) ? (v as SortKey) : "occurred_at";
+    const keys: Array<Exclude<SortKey, `field:${number}`>> = ["occurred_at", "type", "amount", "currency", "categories", "tags", "note"];
+    if (typeof v === "string" && keys.includes(v as any)) return v as SortKey;
+    if (isFieldSortKey(v)) return v;
+    return "occurred_at";
   });
   const [sortDir, setSortDir] = useState<SortDir>(() => (persisted.sortDir === "asc" || persisted.sortDir === "desc" ? persisted.sortDir : "desc"));
 
@@ -215,6 +221,12 @@ export function TransactionsPage() {
       cancelled = true;
     };
   }, [linkCategoryId]);
+
+  useEffect(() => {
+    if (!isFieldSortKey(sortKey)) return;
+    const exists = listCategoryFields.some((f) => sortKey === `field:${f.id}`);
+    if (!exists) setSortKey("occurred_at");
+  }, [listCategoryFields, sortKey]);
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Tx | null>(null);
@@ -802,11 +814,24 @@ export function TransactionsPage() {
                   </TableSortLabel>
                 </TableCell>
                 {linkCategoryId
-                  ? listCategoryFields.map((f) => (
-                      <TableCell key={`field-${f.id}`} sx={{ width: 160 }}>
-                        {f.name}
-                      </TableCell>
-                    ))
+                  ? listCategoryFields.map((f) => {
+                      const key: SortKey = `field:${f.id}`;
+                      return (
+                        <TableCell
+                          key={`field-${f.id}`}
+                          sx={{ width: 160 }}
+                          sortDirection={sortKey === key ? sortDir : false}
+                        >
+                          <TableSortLabel
+                            active={sortKey === key}
+                            direction={sortKey === key ? sortDir : "asc"}
+                            onClick={() => requestSort(key)}
+                          >
+                            {f.name}
+                          </TableSortLabel>
+                        </TableCell>
+                      );
+                    })
                   : null}
                 <TableCell sx={{ width: 400 }} sortDirection={sortKey === "note" ? sortDir : false}>
                   <TableSortLabel

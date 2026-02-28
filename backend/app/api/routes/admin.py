@@ -4,7 +4,7 @@ from decimal import Decimal
 from datetime import date, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, aliased, joinedload
 
 from app.audit import audit_log, diff
 from app.config import get_settings
@@ -357,6 +357,33 @@ def list_transactions(
         )
     else:
         order_col = Transaction.occurred_at
+        field_sort_id: int | None = None
+        if sort_key and category_id is not None:
+            raw = None
+            if sort_key.startswith("field:"):
+                raw = sort_key.split(":", 1)[1]
+            elif sort_key.startswith("field_"):
+                raw = sort_key.split("_", 1)[1]
+            if raw and str(raw).isdigit():
+                try:
+                    field_sort_id = int(raw)
+                except Exception:
+                    field_sort_id = None
+
+        if field_sort_id is not None and category_id is not None:
+            allowed = (
+                db.query(CategoryField.id)
+                .filter(CategoryField.id == field_sort_id)
+                .filter(CategoryField.category_id == category_id)
+                .first()
+            )
+            if allowed:
+                fv = aliased(TransactionFieldValue)
+                query = query.outerjoin(
+                    fv, (fv.transaction_id == Transaction.id) & (fv.field_id == field_sort_id)
+                )
+                order_col = fv.value
+
         if sort_key == "amount":
             order_col = Transaction.amount
         elif sort_key == "type":
@@ -367,7 +394,10 @@ def list_transactions(
             order_col = Transaction.note
         elif sort_key == "occurred_at":
             order_col = Transaction.occurred_at
-        query = query.order_by(order_col.asc() if dir_is_asc else order_col.desc(), Transaction.id.desc())
+        order_expr = order_col.asc() if dir_is_asc else order_col.desc()
+        if field_sort_id is not None:
+            order_expr = order_expr.nullslast()
+        query = query.order_by(order_expr, Transaction.id.desc())
 
     total = query.count()
     items = query.offset(skip).limit(min(limit, 500)).all()
