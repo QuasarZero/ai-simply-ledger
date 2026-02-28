@@ -132,6 +132,9 @@ export function TransactionsPage() {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [actionsAnchorEl, setActionsAnchorEl] = useState<HTMLElement | null>(null);
   const [actionsTx, setActionsTx] = useState<Tx | null>(null);
+  const [openBulkCategories, setOpenBulkCategories] = useState(false);
+  const [bulkCategories, setBulkCategories] = useState<Category[]>([]);
+  const [bulkSaving, setBulkSaving] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>(() => {
     const v = persisted.sortKey;
     const keys: SortKey[] = ["occurred_at", "type", "amount", "currency", "categories", "tags", "note"];
@@ -433,6 +436,28 @@ export function TransactionsPage() {
     if (appliedFilters) await load(appliedFilters);
   }
 
+  async function bulkSetCategories() {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    if (bulkSaving) return;
+    const ok = await confirm({ message: t("confirmBulkSetCategories"), danger: false });
+    if (!ok) return;
+    setBulkSaving(true);
+    try {
+      await api.post("/transactions/bulk", {
+        ids,
+        action: "set_categories",
+        category_ids: bulkCategories.map((c) => c.id)
+      });
+      setOpenBulkCategories(false);
+      setBulkCategories([]);
+      setSelectedIds(new Set());
+      if (appliedFilters) await load(appliedFilters);
+    } finally {
+      setBulkSaving(false);
+    }
+  }
+
   async function ensureTagByName(name: string): Promise<Tag> {
     const trimmed = name.trim();
     const existing = tags.find((t) => t.name.toLowerCase() === trimmed.toLowerCase());
@@ -566,7 +591,7 @@ export function TransactionsPage() {
       <Paper sx={{ p: 2 }}>
         <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 1 }}>
           <Typography variant="h6">
-            {t("transactions")}
+            {t("transactions")} ({total})
           </Typography>
           <Button variant="contained" onClick={openCreate}>
             {t("create")}
@@ -576,6 +601,15 @@ export function TransactionsPage() {
               <Typography variant="body2">
                 {t("selected")}: {selectedIds.size}
               </Typography>
+              <Button
+                size="small"
+                onClick={() => {
+                  setBulkCategories([]);
+                  setOpenBulkCategories(true);
+                }}
+              >
+                {t("bulkSetCategories")}
+              </Button>
               <Button size="small" onClick={() => bulk("void")}>
                 {t("void")}
               </Button>
@@ -884,13 +918,61 @@ export function TransactionsPage() {
               }}
               renderInput={(params) => <TextField {...params} label={t("tags")} helperText={t("createTagHint")} />}
             />
-            <TextField label={t("note")} value={note} onChange={(e) => setNote(e.target.value)} multiline minRows={2} />
+            <TextField
+              label={t("note")}
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              multiline
+              minRows={3}
+              maxRows={12}
+              sx={{ "& textarea": { resize: "vertical" } }}
+            />
           </Stack>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpen(false)}>{t("cancel")}</Button>
           <Button onClick={save} variant="contained" disabled={saving}>
             {t("save")}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={openBulkCategories}
+        onClose={() => {
+          if (bulkSaving) return;
+          setOpenBulkCategories(false);
+        }}
+        fullWidth
+        maxWidth="sm"
+      >
+        <DialogTitle>{t("bulkSetCategories")}</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <Autocomplete
+              multiple
+              options={categories}
+              getOptionLabel={(o) => o.name}
+              value={bulkCategories}
+              onChange={(_, v) => setBulkCategories(v)}
+              renderInput={(params) => <TextField {...params} label={t("categories")} />}
+            />
+            <Typography variant="body2" color="text.secondary">
+              {t("bulkSetCategoriesHint")}
+            </Typography>
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => {
+              if (bulkSaving) return;
+              setOpenBulkCategories(false);
+            }}
+          >
+            {t("cancel")}
+          </Button>
+          <Button onClick={bulkSetCategories} variant="contained" disabled={bulkSaving}>
+            {t("apply")}
           </Button>
         </DialogActions>
       </Dialog>

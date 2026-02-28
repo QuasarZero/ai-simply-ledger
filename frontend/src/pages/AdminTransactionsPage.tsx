@@ -1,11 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
 import {
+  Autocomplete,
   Box,
   Button,
   ButtonGroup,
   Checkbox,
   Chip,
   Divider,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Paper,
   FormControlLabel,
   Stack,
@@ -122,6 +127,9 @@ export function AdminTransactionsPage() {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [actionsAnchorEl, setActionsAnchorEl] = useState<HTMLElement | null>(null);
   const [actionsTx, setActionsTx] = useState<Tx | null>(null);
+  const [openBulkCategories, setOpenBulkCategories] = useState(false);
+  const [bulkCategories, setBulkCategories] = useState<Category[]>([]);
+  const [bulkSaving, setBulkSaving] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>(() => {
     const v = persisted.sortKey;
     const keys: SortKey[] = ["user", "occurred_at", "type", "amount", "currency", "categories", "tags", "note"];
@@ -360,6 +368,28 @@ export function AdminTransactionsPage() {
     if (appliedFilters) await load(appliedFilters);
   }
 
+  async function bulkSetCategories() {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    if (bulkSaving) return;
+    const ok = await confirm({ message: t("confirmBulkSetCategories"), danger: false });
+    if (!ok) return;
+    setBulkSaving(true);
+    try {
+      await api.post("/admin/transactions/bulk", {
+        ids,
+        action: "set_categories",
+        category_ids: bulkCategories.map((c) => c.id)
+      });
+      setOpenBulkCategories(false);
+      setBulkCategories([]);
+      setSelectedIds(new Set());
+      if (appliedFilters) await load(appliedFilters);
+    } finally {
+      setBulkSaving(false);
+    }
+  }
+
   return (
     <Stack spacing={2}>
       <Paper sx={{ p: 2 }}>
@@ -485,13 +515,22 @@ export function AdminTransactionsPage() {
       <Paper sx={{ p: 2 }}>
         <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 1 }}>
           <Typography variant="h6">
-            {t("adminTransactions")}
+            {t("adminTransactions")} ({total})
           </Typography>
           {selectedIds.size > 0 ? (
             <Stack direction="row" spacing={1} alignItems="center">
               <Typography variant="body2">
                 {t("selected")}: {selectedIds.size}
               </Typography>
+              <Button
+                size="small"
+                onClick={() => {
+                  setBulkCategories([]);
+                  setOpenBulkCategories(true);
+                }}
+              >
+                {t("bulkSetCategories")}
+              </Button>
               <Button size="small" onClick={() => bulk("void")}>
                 {t("void")}
               </Button>
@@ -683,6 +722,46 @@ export function AdminTransactionsPage() {
           }}
         />
       </Paper>
+
+      <Dialog
+        open={openBulkCategories}
+        onClose={() => {
+          if (bulkSaving) return;
+          setOpenBulkCategories(false);
+        }}
+        fullWidth
+        maxWidth="sm"
+      >
+        <DialogTitle>{t("bulkSetCategories")}</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <Autocomplete
+              multiple
+              options={categories}
+              getOptionLabel={(o) => o.name}
+              value={bulkCategories}
+              onChange={(_, v) => setBulkCategories(v)}
+              renderInput={(params) => <TextField {...params} label={t("categories")} />}
+            />
+            <Typography variant="body2" color="text.secondary">
+              {t("bulkSetCategoriesHint")}
+            </Typography>
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => {
+              if (bulkSaving) return;
+              setOpenBulkCategories(false);
+            }}
+          >
+            {t("cancel")}
+          </Button>
+          <Button onClick={bulkSetCategories} variant="contained" disabled={bulkSaving}>
+            {t("apply")}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Menu
         anchorEl={actionsAnchorEl}

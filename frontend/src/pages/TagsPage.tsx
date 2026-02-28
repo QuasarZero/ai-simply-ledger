@@ -173,7 +173,7 @@ export function TagsPage() {
       <Paper sx={{ p: 2 }}>
         <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 2 }}>
           <Typography variant="h6">
-            {t("tags")}
+            {t("tags")} ({sortedItems.length})
           </Typography>
           <Button variant="contained" onClick={openCreate}>
             {t("create")}

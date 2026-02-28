@@ -60,4 +60,5 @@ class TransactionListAdmin(BaseModel):
 
 class BulkActionIn(BaseModel):
     ids: list[int]
-    action: str = Field(pattern="^(void|restore|delete)$")
+    action: str = Field(pattern="^(void|restore|delete|set_categories)$")
+    category_ids: list[int] | None = None

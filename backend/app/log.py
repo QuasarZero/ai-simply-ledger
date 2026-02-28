@@ -233,10 +233,17 @@ def audit_log(
             verb = "Batch Void"
         elif op.startswith("restore"):
             verb = "Batch Restore"
+        elif op.startswith("set_categories"):
+            verb = "Batch Set categories"
         label = _entity_label_plural(entity)
-        _write_prefixed_line(
-            prefix="audit", line=f"[{ts} - {ip}] {actor_text} {verb} {label} { _json_compact(ids) }"
-        )
+        tail = _json_compact(ids)
+        if isinstance(changes, dict) and "category_ids" in changes:
+            try:
+                cat_ids = [int(x) for x in (changes.get("category_ids") or [])]
+            except Exception:
+                cat_ids = changes.get("category_ids")
+            tail = f"{tail} {_json_compact({'category_ids': cat_ids})}"
+        _write_prefixed_line(prefix="audit", line=f"[{ts} - {ip}] {actor_text} {verb} {label} {tail}")
         return
 
     if normalized_action.endswith(".create"):

@@ -350,4 +350,24 @@ def bulk_action(
         )
         return {"ok": True, "affected": len(items)}
 
+    if payload.action == "set_categories":
+        if payload.category_ids is None:
+            raise HTTPException(status_code=400, detail="category_ids required")
+        category_ids = [int(x) for x in payload.category_ids if int(x) > 0]
+        categories: list[Category] = []
+        if category_ids:
+            categories = db.query(Category).filter(Category.id.in_(category_ids)).all()
+        for tx in items:
+            tx.categories = categories
+        db.commit()
+        audit_log(
+            action="transaction.bulk_set_categories",
+            actor=current_user,
+            entity="transaction",
+            entity_id=None,
+            changes={"ids": ids, "category_ids": category_ids},
+            request=request,
+        )
+        return {"ok": True, "affected": len(items)}
+
     raise HTTPException(status_code=400, detail="Invalid action")
