@@ -121,6 +121,8 @@ export function TransactionsPage() {
     const persistedId = persisted.linkTagId;
     return typeof persistedId === "number" && Number.isFinite(persistedId) ? persistedId : null;
   });
+  const [listCategoryFields, setListCategoryFields] = useState<CategoryField[]>([]);
+  const [loadingListCategoryFields, setLoadingListCategoryFields] = useState(false);
   const [pageSize, setPageSize] = useState<number>(() => {
     const v = persisted.pageSize;
     return typeof v === "number" && Number.isFinite(v) && v > 0 ? v : 20;
@@ -191,6 +193,28 @@ export function TransactionsPage() {
 
     if (changed) setSearchParams(next, { replace: true });
   }, [linkCategoryId, linkTagId, searchParams, setSearchParams]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function run() {
+      if (!linkCategoryId) {
+        setListCategoryFields([]);
+        return;
+      }
+      setLoadingListCategoryFields(true);
+      try {
+        const res = await api.get(`/categories/${linkCategoryId}/fields`);
+        if (cancelled) return;
+        setListCategoryFields(((res.data || []) as CategoryField[]).filter((f) => f && typeof f.id === "number"));
+      } finally {
+        if (!cancelled) setLoadingListCategoryFields(false);
+      }
+    }
+    run().catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [linkCategoryId]);
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Tx | null>(null);
@@ -341,6 +365,8 @@ export function TransactionsPage() {
       return String(va).localeCompare(String(vb)) * dir;
     });
   }, [items, sortDir, sortKey]);
+
+  const tableMinWidth = useMemo(() => 1200 + listCategoryFields.length * 160, [listCategoryFields.length]);
 
   function openActionsMenu(e: React.MouseEvent<HTMLElement>, tx: Tx) {
     setActionsAnchorEl(e.currentTarget);
@@ -667,7 +693,7 @@ export function TransactionsPage() {
       </Paper>
 
       <Paper sx={{ p: 2 }}>
-        {loadingList ? <LinearProgress sx={{ mb: 1 }} /> : null}
+        {loadingList || loadingListCategoryFields ? <LinearProgress sx={{ mb: 1 }} /> : null}
         <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 1 }}>
           <Typography variant="h6">
             {t("transactions")} ({total})
@@ -702,7 +728,7 @@ export function TransactionsPage() {
           ) : null}
         </Stack>
         <TableContainer sx={{ overflowX: "auto" }}>
-          <Table size="small" sx={{ tableLayout: "fixed" }}>
+          <Table size="small" sx={{ tableLayout: "fixed", minWidth: tableMinWidth }}>
             <TableHead>
               <TableRow>
                 <TableCell padding="checkbox">
@@ -775,6 +801,13 @@ export function TransactionsPage() {
                     {t("tags")}
                   </TableSortLabel>
                 </TableCell>
+                {linkCategoryId
+                  ? listCategoryFields.map((f) => (
+                      <TableCell key={`field-${f.id}`} sx={{ width: 160 }}>
+                        {f.name}
+                      </TableCell>
+                    ))
+                  : null}
                 <TableCell sx={{ width: 400 }} sortDirection={sortKey === "note" ? sortDir : false}>
                   <TableSortLabel
                     active={sortKey === "note"}
@@ -788,7 +821,12 @@ export function TransactionsPage() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {sortedItems.map((it) => (
+              {sortedItems.map((it) => {
+                const fvById = new Map<number, string>();
+                (it.field_values || []).forEach((fv) => {
+                  if (fv && typeof fv.field_id === "number" && typeof fv.value === "string") fvById.set(fv.field_id, fv.value);
+                });
+                return (
                 <TableRow key={it.id}>
                   <TableCell padding="checkbox">
                     <Checkbox
@@ -838,6 +876,16 @@ export function TransactionsPage() {
                       />
                     ))}
                   </TableCell>
+                  {linkCategoryId
+                    ? listCategoryFields.map((f) => (
+                        <TableCell
+                          key={`fv-${it.id}-${f.id}`}
+                          sx={{ maxWidth: 160, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}
+                        >
+                          {fvById.get(f.id) || ""}
+                        </TableCell>
+                      ))
+                    : null}
                   <TableCell sx={{ maxWidth: 260, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                     {it.note || ""}
                   </TableCell>
@@ -850,7 +898,8 @@ export function TransactionsPage() {
                     </ButtonGroup>
                   </TableCell>
                 </TableRow>
-              ))}
+                );
+              })}
             </TableBody>
           </Table>
         </TableContainer>

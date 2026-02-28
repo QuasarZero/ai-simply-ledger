@@ -52,6 +52,7 @@ type Tx = {
   is_voided: boolean;
   categories: Category[];
   tags: Tag[];
+  field_values?: { field_id: number; value: string }[];
 };
 
 type SortDir = "asc" | "desc";
@@ -71,6 +72,7 @@ function stableSort<T>(arr: T[], cmp: (a: T, b: T) => number): T[] {
 type Category = { id: number; name: string };
 type Tag = { id: number; name: string };
 type User = { id: number; email: string; username: string };
+type CategoryField = { id: number; category_id: number; name: string; is_required: boolean; created_at?: string };
 
 export function AdminTransactionsPage() {
   const { t } = useTranslation();
@@ -112,6 +114,8 @@ export function AdminTransactionsPage() {
     const persistedId = persisted.linkTagId;
     return typeof persistedId === "number" && Number.isFinite(persistedId) ? persistedId : null;
   });
+  const [listCategoryFields, setListCategoryFields] = useState<CategoryField[]>([]);
+  const [loadingListCategoryFields, setLoadingListCategoryFields] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
   const [pageSize, setPageSize] = useState<number>(() => {
@@ -195,6 +199,28 @@ export function AdminTransactionsPage() {
 
     if (changed) setSearchParams(next, { replace: true });
   }, [linkUserId, linkCategoryId, linkTagId, searchParams, setSearchParams]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function run() {
+      if (!linkCategoryId) {
+        setListCategoryFields([]);
+        return;
+      }
+      setLoadingListCategoryFields(true);
+      try {
+        const res = await api.get(`/categories/${linkCategoryId}/fields`);
+        if (cancelled) return;
+        setListCategoryFields(((res.data || []) as CategoryField[]).filter((f) => f && typeof f.id === "number"));
+      } finally {
+        if (!cancelled) setLoadingListCategoryFields(false);
+      }
+    }
+    run().catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [linkCategoryId]);
 
   useEffect(() => {
     setLoadingMeta(true);
@@ -334,6 +360,8 @@ export function AdminTransactionsPage() {
       return String(va).localeCompare(String(vb)) * dir;
     });
   }, [items, sortDir, sortKey]);
+
+  const tableMinWidth = useMemo(() => 1500 + listCategoryFields.length * 160, [listCategoryFields.length]);
 
   function openActionsMenu(e: React.MouseEvent<HTMLElement>, tx: Tx) {
     setActionsAnchorEl(e.currentTarget);
@@ -528,7 +556,7 @@ export function AdminTransactionsPage() {
       </Paper>
 
       <Paper sx={{ p: 2 }}>
-        {loadingList ? <LinearProgress sx={{ mb: 1 }} /> : null}
+        {loadingList || loadingListCategoryFields ? <LinearProgress sx={{ mb: 1 }} /> : null}
         <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 1 }}>
           <Typography variant="h6">
             {t("adminTransactions")} ({total})
@@ -561,7 +589,7 @@ export function AdminTransactionsPage() {
           <Box sx={{ flexGrow: 1 }} />
         </Stack>
         <TableContainer sx={{ overflowX: "auto" }}>
-          <Table size="small" sx={{ tableLayout: "fixed" }}>
+          <Table size="small" sx={{ tableLayout: "fixed", minWidth: tableMinWidth }}>
             <TableHead>
               <TableRow>
                 <TableCell padding="checkbox">
@@ -643,6 +671,13 @@ export function AdminTransactionsPage() {
                     {t("tags")}
                   </TableSortLabel>
                 </TableCell>
+                {linkCategoryId
+                  ? listCategoryFields.map((f) => (
+                      <TableCell key={`field-${f.id}`} sx={{ width: 160 }}>
+                        {f.name}
+                      </TableCell>
+                    ))
+                  : null}
                 <TableCell sx={{ width: 400 }} sortDirection={sortKey === "note" ? sortDir : false}>
                   <TableSortLabel
                     active={sortKey === "note"}
@@ -656,7 +691,12 @@ export function AdminTransactionsPage() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {sortedItems.map((it) => (
+              {sortedItems.map((it) => {
+                const fvById = new Map<number, string>();
+                (it.field_values || []).forEach((fv) => {
+                  if (fv && typeof fv.field_id === "number" && typeof fv.value === "string") fvById.set(fv.field_id, fv.value);
+                });
+                return (
                 <TableRow key={it.id}>
                   <TableCell padding="checkbox">
                     <Checkbox
@@ -711,6 +751,16 @@ export function AdminTransactionsPage() {
                       />
                     ))}
                   </TableCell>
+                  {linkCategoryId
+                    ? listCategoryFields.map((f) => (
+                        <TableCell
+                          key={`fv-${it.id}-${f.id}`}
+                          sx={{ maxWidth: 160, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}
+                        >
+                          {fvById.get(f.id) || ""}
+                        </TableCell>
+                      ))
+                    : null}
                   <TableCell sx={{ maxWidth: 220, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                     {it.note || ""}
                   </TableCell>
@@ -723,7 +773,8 @@ export function AdminTransactionsPage() {
                     </ButtonGroup>
                   </TableCell>
                 </TableRow>
-              ))}
+                );
+              })}
             </TableBody>
           </Table>
         </TableContainer>
