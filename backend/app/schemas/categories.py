@@ -20,4 +20,4 @@ class CategoryOut(BaseModel):
     name: str
     description: str | None
     created_at: datetime
-
+    fields_count: int = 0

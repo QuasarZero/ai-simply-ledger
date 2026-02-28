@@ -123,6 +123,7 @@
   "viewing": "表示中",
   "actions": "アクション",
   "fields": "フィールド",
+  "fieldsCount": "フィールド数",
   "categoryFields": "カテゴリフィールド",
   "fieldName": "フィールド名",
   "required": "必須",

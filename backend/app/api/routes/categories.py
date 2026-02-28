@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.audit import audit_log, diff
 from app.db import get_db
 from app.deps import require_admin
-from app.models import Category, User
+from app.models import Category, CategoryField, User
 from app.schemas.categories import CategoryCreate, CategoryOut, CategoryUpdate
 
 router = APIRouter(prefix="/categories")
@@ -14,8 +15,23 @@ router = APIRouter(prefix="/categories")
 
 @router.get("", response_model=list[CategoryOut])
 def list_categories(db: Session = Depends(get_db)):
-    items = db.query(Category).order_by(Category.name.asc()).all()
-    return [CategoryOut(id=c.id, name=c.name, description=c.description, created_at=c.created_at) for c in items]
+    fields_count = (
+        db.query(func.count(CategoryField.id))
+        .filter(CategoryField.category_id == Category.id)
+        .correlate(Category)
+        .scalar_subquery()
+    )
+    items = db.query(Category, fields_count.label("fields_count")).order_by(Category.name.asc()).all()
+    return [
+        CategoryOut(
+            id=c.id,
+            name=c.name,
+            description=c.description,
+            created_at=c.created_at,
+            fields_count=int(cnt or 0),
+        )
+        for (c, cnt) in items
+    ]
 
 
 @router.post("", response_model=CategoryOut, dependencies=[Depends(require_admin)])
@@ -42,7 +58,7 @@ def create_category(
         },
         request=request,
     )
-    return CategoryOut(id=c.id, name=c.name, description=c.description, created_at=c.created_at)
+    return CategoryOut(id=c.id, name=c.name, description=c.description, created_at=c.created_at, fields_count=0)
 
 
 @router.patch("/{category_id}", response_model=CategoryOut, dependencies=[Depends(require_admin)])
@@ -75,7 +91,14 @@ def update_category(
             changes=changes,
             request=request,
         )
-    return CategoryOut(id=c.id, name=c.name, description=c.description, created_at=c.created_at)
+    fields_count = int(db.query(func.count(CategoryField.id)).filter(CategoryField.category_id == c.id).scalar() or 0)
+    return CategoryOut(
+        id=c.id,
+        name=c.name,
+        description=c.description,
+        created_at=c.created_at,
+        fields_count=fields_count,
+    )
 
 
 @router.delete("/{category_id}", dependencies=[Depends(require_admin)])

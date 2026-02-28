@@ -1,13 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Button,
+  ButtonGroup,
   Checkbox,
+  Divider,
   FormControlLabel,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
   LinearProgress,
+  Menu,
+  MenuItem,
   Paper,
   Stack,
   Table,
@@ -22,6 +26,7 @@ import {
 } from "@mui/material";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
+import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
 
 import { api } from "../api/client";
 import { useConfirm } from "../hooks/useConfirm";
@@ -29,7 +34,7 @@ import { useAuth } from "../auth/AuthContext";
 import { safeParseJson } from "../storage";
 import { PaginationBar } from "../components/PaginationBar";
 
-type Category = { id: number; name: string; description?: string | null };
+type Category = { id: number; name: string; description?: string | null; fields_count?: number };
 type CategoryField = { id: number; category_id: number; name: string; is_required: boolean; created_at: string };
 type SortDir = "asc" | "desc";
 type SortKey = "name" | "description";
@@ -68,6 +73,8 @@ export function CategoriesPage() {
     return typeof v === "number" && Number.isFinite(v) && v >= 0 ? v : 0;
   });
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [actionsAnchorEl, setActionsAnchorEl] = useState<HTMLElement | null>(null);
+  const [actionsCategory, setActionsCategory] = useState<Category | null>(null);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Category | null>(null);
   const [name, setName] = useState("");
@@ -108,6 +115,16 @@ export function CategoriesPage() {
     setPage(0);
     setSelectedIds(new Set());
   }, [q]);
+
+  function openActionsMenu(e: React.MouseEvent<HTMLElement>, c: Category) {
+    setActionsAnchorEl(e.currentTarget);
+    setActionsCategory(c);
+  }
+
+  function closeActionsMenu() {
+    setActionsAnchorEl(null);
+    setActionsCategory(null);
+  }
 
   function openCreate() {
     setEditing(null);
@@ -318,6 +335,7 @@ export function CategoriesPage() {
                   {t("note")}
                 </TableSortLabel>
               </TableCell>
+              <TableCell sx={{ width: 140 }}>{t("fieldsCount")}</TableCell>
               <TableCell />
             </TableRow>
           </TableHead>
@@ -350,18 +368,14 @@ export function CategoriesPage() {
                   </Button>
                 </TableCell>
                 <TableCell>{c.description || ""}</TableCell>
-                <TableCell align="right">
-                  <Button size="small" onClick={() => openEdit(c)}>
-                    {t("edit")}
-                  </Button>
-                  {me?.is_admin ? (
-                    <Button size="small" onClick={() => openManageFields(c)}>
-                      {t("fields")}
+                <TableCell>{typeof c.fields_count === "number" ? c.fields_count : 0}</TableCell>
+                <TableCell align="left">
+                  <ButtonGroup variant="outlined" size="small">
+                    <Button onClick={() => openEdit(c)}>{t("edit")}</Button>
+                    <Button onClick={(e) => openActionsMenu(e, c)} sx={{ px: 0.5, minWidth: 36 }}>
+                      <ArrowDropDownIcon fontSize="small" />
                     </Button>
-                  ) : null}
-                  <Button size="small" color="error" onClick={() => del(c.id)}>
-                    {t("delete")}
-                  </Button>
+                  </ButtonGroup>
                 </TableCell>
               </TableRow>
             ))}
@@ -378,6 +392,40 @@ export function CategoriesPage() {
           }}
         />
       </Paper>
+
+      <Menu
+        anchorEl={actionsAnchorEl}
+        open={!!actionsAnchorEl}
+        onClose={closeActionsMenu}
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+        transformOrigin={{ vertical: "top", horizontal: "right" }}
+      >
+        {me?.is_admin ? (
+          <>
+            <MenuItem
+              onClick={() => {
+                if (!actionsCategory) return;
+                const c = actionsCategory;
+                closeActionsMenu();
+                openManageFields(c).catch(() => {});
+              }}
+            >
+              {t("fields")}
+            </MenuItem>
+            <Divider />
+          </>
+        ) : null}
+        <MenuItem
+          onClick={() => {
+            if (!actionsCategory) return;
+            const id = actionsCategory.id;
+            closeActionsMenu();
+            del(id).catch(() => {});
+          }}
+        >
+          {t("delete")}
+        </MenuItem>
+      </Menu>
 
       <Dialog
         open={openFields}

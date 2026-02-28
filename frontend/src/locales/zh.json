@@ -123,6 +123,7 @@
   "viewing": "当前查看",
   "actions": "操作",
   "fields": "字段",
+  "fieldsCount": "字段数",
   "categoryFields": "分类字段",
   "fieldName": "字段名",
   "required": "必填",
