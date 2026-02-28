@@ -37,7 +37,7 @@ import { PaginationBar } from "../components/PaginationBar";
 type Category = { id: number; name: string; description?: string | null; fields_count?: number };
 type CategoryField = { id: number; category_id: number; name: string; is_required: boolean; created_at: string };
 type SortDir = "asc" | "desc";
-type SortKey = "name" | "description";
+type SortKey = "name" | "description" | "fields_count";
 const STORAGE_KEY = "pageState:categories";
 
 function stableSort<T>(arr: T[], cmp: (a: T, b: T) => number): T[] {
@@ -61,7 +61,7 @@ export function CategoriesPage() {
   const [q, setQ] = useState<string>(() => (typeof persisted.q === "string" ? persisted.q : ""));
   const [sortKey, setSortKey] = useState<SortKey>(() => {
     const v = persisted.sortKey;
-    return v === "name" || v === "description" ? v : "name";
+    return v === "name" || v === "description" || v === "fields_count" ? v : "name";
   });
   const [sortDir, setSortDir] = useState<SortDir>(() => (persisted.sortDir === "asc" || persisted.sortDir === "desc" ? persisted.sortDir : "asc"));
   const [pageSize, setPageSize] = useState<number>(() => {
@@ -248,6 +248,11 @@ export function CategoriesPage() {
       : items;
     const dir = sortDir === "asc" ? 1 : -1;
     return stableSort(base, (a, b) => {
+      if (sortKey === "fields_count") {
+        const va = typeof a.fields_count === "number" ? a.fields_count : 0;
+        const vb = typeof b.fields_count === "number" ? b.fields_count : 0;
+        return (va - vb) * dir;
+      }
       const va = sortKey === "name" ? a.name : (a.description || "");
       const vb = sortKey === "name" ? b.name : (b.description || "");
       return String(va).localeCompare(String(vb)) * dir;
@@ -337,7 +342,15 @@ export function CategoriesPage() {
                   {t("note")}
                 </TableSortLabel>
               </TableCell>
-              <TableCell sx={{ width: 140 }}>{t("fieldsCount")}</TableCell>
+              <TableCell sx={{ width: 140 }} sortDirection={sortKey === "fields_count" ? sortDir : false}>
+                <TableSortLabel
+                  active={sortKey === "fields_count"}
+                  direction={sortKey === "fields_count" ? sortDir : "asc"}
+                  onClick={() => requestSort("fields_count")}
+                >
+                  {t("fieldsCount")}
+                </TableSortLabel>
+              </TableCell>
               <TableCell />
             </TableRow>
           </TableHead>
