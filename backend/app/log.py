@@ -10,7 +10,10 @@ from typing import Any
 
 from fastapi import Request
 
+from app.config import get_settings
 from app.models import User
+
+settings = get_settings()
 
 
 def _log_dir() -> Path:
@@ -34,7 +37,7 @@ def _actor_label(user: User | None) -> str | None:
 
 
 def _write_prefixed_line(*, prefix: str, line: str) -> None:
-    day = datetime.now().strftime("%Y-%m-%d")
+    day = datetime.now(settings.tzinfo).strftime("%Y-%m-%d")
     out = _log_dir() / f"{prefix.lower()}-{day}.log"
     try:
         with out.open("a", encoding="utf-8") as f:
@@ -46,7 +49,7 @@ def _write_prefixed_line(*, prefix: str, line: str) -> None:
 
 def _now_stamp() -> str:
     # Keep the format user wants: "YYYY-MM-DD HH:MM:SS"
-    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    return datetime.now(settings.tzinfo).strftime("%Y-%m-%d %H:%M:%S")
 
 
 def _ip_label(request: Request | None) -> str:
@@ -334,4 +337,3 @@ def diff(before: dict[str, Any], after: dict[str, Any]) -> dict[str, Any]:
         if before.get(k) != after.get(k):
             out[k] = {"from": before.get(k), "to": after.get(k)}
     return out
-

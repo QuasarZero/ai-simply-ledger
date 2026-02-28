@@ -75,6 +75,13 @@ docker compose run --rm backend python -m app.cli init-admin
 - 前端：`http://localhost:8080`
 - 后端 API：`http://localhost:8000/api`（开发调试用；生产时前端通过 `/api` 反代）
 
+## 时区（重要）
+
+系统时区通过 `.env` 的 `TIMEZONE` 控制（默认 `Asia/Shanghai`，即东八区）。`docker-compose.yml` 会把它应用到：
+
+- PostgreSQL：设置容器 `TZ`，并通过启动参数设置 `timezone`
+- 后端：设置容器 `TZ`，并把 `TIMEZONE` 传给后端配置（用于日期筛选边界/默认日期范围）
+
 ## 控制台命令
 
 重置任意用户密码：

@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 from decimal import Decimal
-from datetime import date, datetime, timezone
+from datetime import date, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session, joinedload
 
 from app.audit import audit_log, diff
+from app.config import get_settings
 from app.db import get_db
 from app.deps import require_admin
 from app.models import Category, Tag, Transaction, User
@@ -20,6 +21,7 @@ from app.schemas.users import ResetPasswordIn, UserCreate, UserMiniOut, UserOut,
 from app.security import hash_password
 
 router = APIRouter(dependencies=[Depends(require_admin)])
+settings = get_settings()
 
 
 def _coerce_date(value) -> date | None:
@@ -270,10 +272,10 @@ def list_transactions(
     start = _coerce_date(start)
     end = _coerce_date(end)
     if start:
-        start_dt = datetime.combine(start, datetime.min.time()).replace(tzinfo=timezone.utc)
+        start_dt = datetime.combine(start, datetime.min.time()).replace(tzinfo=settings.tzinfo)
         query = query.filter(Transaction.occurred_at >= start_dt)
     if end:
-        end_dt = datetime.combine(end, datetime.max.time()).replace(tzinfo=timezone.utc)
+        end_dt = datetime.combine(end, datetime.max.time()).replace(tzinfo=settings.tzinfo)
         query = query.filter(Transaction.occurred_at <= end_dt)
     if type in ("income", "expense"):
         query = query.filter(Transaction.type == type)

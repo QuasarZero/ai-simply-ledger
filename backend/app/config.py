@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from functools import lru_cache
+from zoneinfo import ZoneInfo
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -11,6 +12,7 @@ class Settings(BaseSettings):
     app_env: str = "prod"
     debug: bool = False
     log_dir: str = "logs"
+    timezone: str = "Asia/Shanghai"
 
     secret_key: str = "change-me"
     access_token_expire_minutes: int = 60 * 24 * 7
@@ -39,6 +41,10 @@ class Settings(BaseSettings):
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+
+    @property
+    def tzinfo(self) -> ZoneInfo:
+        return ZoneInfo(self.timezone)
 
 
 @lru_cache

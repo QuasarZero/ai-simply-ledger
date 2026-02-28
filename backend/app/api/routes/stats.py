@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timedelta
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session, joinedload
 
+from app.config import get_settings
 from app.db import get_db
 from app.deps import get_current_user
 from app.models import Transaction, User
@@ -22,6 +23,7 @@ from app.schemas.stats import (
 from app.services.fx import convert_amount, get_rates
 
 router = APIRouter(prefix="/stats")
+settings = get_settings()
 
 
 def _to_date_str(dt: datetime) -> str:
@@ -39,12 +41,12 @@ def summary(
 ):
     base_currency = base_currency.upper()
     if not start:
-        start = (datetime.now(timezone.utc) - timedelta(days=30)).date()
+        start = (datetime.now(settings.tzinfo) - timedelta(days=30)).date()
     if not end:
-        end = datetime.now(timezone.utc).date()
+        end = datetime.now(settings.tzinfo).date()
 
-    start_dt = datetime.combine(start, datetime.min.time()).replace(tzinfo=timezone.utc)
-    end_dt = datetime.combine(end, datetime.max.time()).replace(tzinfo=timezone.utc)
+    start_dt = datetime.combine(start, datetime.min.time()).replace(tzinfo=settings.tzinfo)
+    end_dt = datetime.combine(end, datetime.max.time()).replace(tzinfo=settings.tzinfo)
 
     query = (
         db.query(Transaction)
@@ -154,12 +156,12 @@ def dashboard(
 ):
     base_currency = base_currency.upper()
     if not start:
-        start = (datetime.now(timezone.utc) - timedelta(days=30)).date()
+        start = (datetime.now(settings.tzinfo) - timedelta(days=30)).date()
     if not end:
-        end = datetime.now(timezone.utc).date()
+        end = datetime.now(settings.tzinfo).date()
 
-    start_dt = datetime.combine(start, datetime.min.time()).replace(tzinfo=timezone.utc)
-    end_dt = datetime.combine(end, datetime.max.time()).replace(tzinfo=timezone.utc)
+    start_dt = datetime.combine(start, datetime.min.time()).replace(tzinfo=settings.tzinfo)
+    end_dt = datetime.combine(end, datetime.max.time()).replace(tzinfo=settings.tzinfo)
 
     query = (
         db.query(Transaction)

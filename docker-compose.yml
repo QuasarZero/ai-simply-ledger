@@ -6,6 +6,8 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      TZ: ${TIMEZONE}
+    command: postgres -c timezone=${TIMEZONE}
     volumes:
       - pgdata:/var/lib/postgresql/data
     ports:
@@ -21,6 +23,8 @@ services:
       SECRET_KEY: ${SECRET_KEY}
       ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES}
       CORS_ORIGINS: ${CORS_ORIGINS}
+      TIMEZONE: ${TIMEZONE}
+      TZ: ${TIMEZONE}
       LOG_DIR: /app/logs
       DB_HOST: ${DB_HOST}
       DB_PORT: ${DB_PORT}
@@ -45,6 +49,8 @@ services:
       args:
         VITE_API_BASE_URL: /api
     restart: unless-stopped
+    environment:
+      TZ: ${TIMEZONE}
     depends_on:
       - backend
     ports:
