@@ -10,7 +10,7 @@ from app.audit import audit_log, diff
 from app.config import get_settings
 from app.db import get_db
 from app.deps import require_admin
-from app.models import Category, Tag, Transaction, User
+from app.models import Category, CategoryField, Tag, Transaction, TransactionFieldValue, User
 from app.schemas.transactions import (
     BulkActionIn,
     TransactionListAdmin,
@@ -53,7 +53,58 @@ def _tx_to_out_admin(tx: Transaction) -> TransactionOutAdmin:
             for c in tx.categories
         ],
         tags=[{"id": t.id, "name": t.name, "created_at": t.created_at} for t in tx.tags],
+        field_values=[{"field_id": fv.field_id, "value": fv.value} for fv in (tx.field_values or [])],
     )
+
+
+def _coerce_field_values(values) -> dict[int, str]:
+    out: dict[int, str] = {}
+    if not values:
+        return out
+    for item in values:
+        try:
+            field_id = int(getattr(item, "field_id", None) or item.get("field_id"))
+        except Exception:
+            continue
+        raw = getattr(item, "value", None)
+        if raw is None and isinstance(item, dict):
+            raw = item.get("value")
+        if raw is None:
+            continue
+        s = str(raw).strip()
+        if not s:
+            continue
+        out[field_id] = s
+    return out
+
+
+def _validate_required_fields(db: Session, *, category_ids: list[int], field_values: dict[int, str]) -> None:
+    if not category_ids:
+        return
+    required_fields = (
+        db.query(CategoryField.id, CategoryField.name)
+        .filter(CategoryField.category_id.in_(category_ids))
+        .filter(CategoryField.is_required.is_(True))
+        .all()
+    )
+    missing = [name for (fid, name) in required_fields if int(fid) not in field_values]
+    if missing:
+        raise HTTPException(status_code=400, detail=f"Missing required fields: {', '.join(missing)}")
+
+
+def _validate_field_ids_allowed(db: Session, *, category_ids: list[int], field_values: dict[int, str]) -> None:
+    if not field_values:
+        return
+    allowed = (
+        db.query(CategoryField.id)
+        .filter(CategoryField.category_id.in_(category_ids))
+        .filter(CategoryField.id.in_(list(field_values.keys())))
+        .all()
+    )
+    allowed_ids = {int(r[0]) for r in allowed}
+    bad = [fid for fid in field_values.keys() if int(fid) not in allowed_ids]
+    if bad:
+        raise HTTPException(status_code=400, detail=f"Invalid field ids for selected categories: {sorted(bad)}")
 
 
 @router.get("/users", response_model=list[UserOut])
@@ -264,7 +315,12 @@ def list_transactions(
 ):
     query = (
         db.query(Transaction)
-        .options(joinedload(Transaction.categories), joinedload(Transaction.tags), joinedload(Transaction.user))
+        .options(
+            joinedload(Transaction.categories),
+            joinedload(Transaction.tags),
+            joinedload(Transaction.user),
+            joinedload(Transaction.field_values),
+        )
         .filter(Transaction.is_voided == voided)
     )
     if user_id is not None:
@@ -328,7 +384,12 @@ def update_transaction_admin(
 ):
     tx = (
         db.query(Transaction)
-        .options(joinedload(Transaction.categories), joinedload(Transaction.tags), joinedload(Transaction.user))
+        .options(
+            joinedload(Transaction.categories),
+            joinedload(Transaction.tags),
+            joinedload(Transaction.user),
+            joinedload(Transaction.field_values),
+        )
         .filter(Transaction.id == tx_id)
         .first()
     )
@@ -345,6 +406,7 @@ def update_transaction_admin(
         "is_voided": bool(tx.is_voided),
         "category_ids": [c.id for c in (tx.categories or [])],
         "tag_ids": [t.id for t in (tx.tags or [])],
+        "field_values": {fv.field_id: fv.value for fv in (tx.field_values or [])},
     }
 
     if payload.type:
@@ -372,6 +434,36 @@ def update_transaction_admin(
             tags = db.query(Tag).filter(Tag.id.in_(payload.tag_ids)).all()
         tx.tags = tags
 
+    if payload.field_values is not None or payload.category_ids is not None:
+        next_category_ids = [c.id for c in (tx.categories or [])]
+        next_field_values = (
+            _coerce_field_values(payload.field_values)
+            if payload.field_values is not None
+            else {fv.field_id: fv.value for fv in (tx.field_values or [])}
+        )
+        _validate_required_fields(db, category_ids=next_category_ids, field_values=next_field_values)
+        _validate_field_ids_allowed(db, category_ids=next_category_ids, field_values=next_field_values)
+
+    if payload.field_values is not None:
+        next_field_values = _coerce_field_values(payload.field_values)
+        db.query(TransactionFieldValue).filter(TransactionFieldValue.transaction_id == tx.id).delete()
+        for field_id, value in next_field_values.items():
+            db.add(TransactionFieldValue(transaction_id=tx.id, field_id=field_id, value=value))
+
+    if payload.category_ids is not None:
+        kept_field_ids = (
+            db.query(CategoryField.id)
+            .filter(CategoryField.category_id.in_([c.id for c in (tx.categories or [])]))
+            .all()
+        )
+        kept_ids = {int(r[0]) for r in kept_field_ids}
+        if kept_ids:
+            db.query(TransactionFieldValue).filter(TransactionFieldValue.transaction_id == tx.id).filter(
+                ~TransactionFieldValue.field_id.in_(list(kept_ids))
+            ).delete(synchronize_session=False)
+        else:
+            db.query(TransactionFieldValue).filter(TransactionFieldValue.transaction_id == tx.id).delete()
+
     db.commit()
     db.refresh(tx)
     after = {
@@ -384,6 +476,7 @@ def update_transaction_admin(
         "is_voided": bool(tx.is_voided),
         "category_ids": [c.id for c in (tx.categories or [])],
         "tag_ids": [t.id for t in (tx.tags or [])],
+        "field_values": {fv.field_id: fv.value for fv in (tx.field_values or [])},
     }
     changes = diff(before, after)
     if changes:

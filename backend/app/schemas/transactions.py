@@ -9,6 +9,16 @@ from app.schemas.tags import TagOut
 from app.schemas.users import UserMiniOut
 
 
+class TransactionFieldValueIn(BaseModel):
+    field_id: int
+    value: str | None = None
+
+
+class TransactionFieldValueOut(BaseModel):
+    field_id: int
+    value: str
+
+
 class TransactionCreate(BaseModel):
     type: str = Field(pattern="^(income|expense)$")
     amount: float = Field(gt=0)
@@ -17,6 +27,7 @@ class TransactionCreate(BaseModel):
     note: str | None = None
     category_ids: list[int] = []
     tag_ids: list[int] = []
+    field_values: list[TransactionFieldValueIn] = []
 
 
 class TransactionUpdate(BaseModel):
@@ -28,6 +39,7 @@ class TransactionUpdate(BaseModel):
     category_ids: list[int] | None = None
     tag_ids: list[int] | None = None
     is_voided: bool | None = None
+    field_values: list[TransactionFieldValueIn] | None = None
 
 
 class TransactionOut(BaseModel):
@@ -42,6 +54,7 @@ class TransactionOut(BaseModel):
     created_at: datetime
     categories: list[CategoryOut]
     tags: list[TagOut]
+    field_values: list[TransactionFieldValueOut] = []
 
 
 class TransactionList(BaseModel):

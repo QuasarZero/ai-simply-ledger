@@ -119,5 +119,14 @@
   "user": "用户",
   "selectUser": "选择用户",
   "viewing": "当前查看",
-  "actions": "操作"
+  "actions": "操作",
+  "fields": "字段",
+  "categoryFields": "分类字段",
+  "fieldName": "字段名",
+  "required": "必填",
+  "yes": "是",
+  "no": "否",
+  "noFields": "暂无字段",
+  "close": "关闭",
+  "confirmDeleteCategoryField": "确定删除该字段？该字段的已存值会一并删除。"
 }

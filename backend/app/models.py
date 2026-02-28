@@ -65,6 +65,9 @@ class Category(Base):
     transactions: Mapped[list["Transaction"]] = relationship(
         secondary=transaction_categories, back_populates="categories"
     )
+    fields: Mapped[list["CategoryField"]] = relationship(
+        back_populates="category", cascade="all, delete-orphan"
+    )
 
 
 class Tag(Base):
@@ -101,3 +104,38 @@ class Transaction(Base):
         secondary=transaction_categories, back_populates="transactions"
     )
     tags: Mapped[list[Tag]] = relationship(secondary=transaction_tags, back_populates="transactions")
+    field_values: Mapped[list["TransactionFieldValue"]] = relationship(
+        back_populates="transaction", cascade="all, delete-orphan"
+    )
+
+
+class CategoryField(Base):
+    __tablename__ = "category_fields"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    category_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("categories.id", ondelete="CASCADE"), index=True
+    )
+    name: Mapped[str] = mapped_column(String(64))
+    is_required: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    category: Mapped[Category] = relationship(back_populates="fields")
+    values: Mapped[list["TransactionFieldValue"]] = relationship(
+        back_populates="field", cascade="all, delete-orphan"
+    )
+
+
+class TransactionFieldValue(Base):
+    __tablename__ = "transaction_field_values"
+
+    transaction_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("transactions.id", ondelete="CASCADE"), primary_key=True
+    )
+    field_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("category_fields.id", ondelete="CASCADE"), primary_key=True, index=True
+    )
+    value: Mapped[str] = mapped_column(Text)
+
+    transaction: Mapped[Transaction] = relationship(back_populates="field_values")
+    field: Mapped[CategoryField] = relationship(back_populates="values")

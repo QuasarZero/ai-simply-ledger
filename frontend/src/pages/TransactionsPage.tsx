@@ -44,6 +44,7 @@ import { PaginationBar } from "../components/PaginationBar";
 
 type Category = { id: number; name: string; description?: string | null };
 type Tag = { id: number; name: string; used_count?: number };
+type CategoryField = { id: number; category_id: number; name: string; is_required: boolean; created_at?: string };
 
 type Tx = {
   id: number;
@@ -55,6 +56,7 @@ type Tx = {
   is_voided: boolean;
   categories: Category[];
   tags: Tag[];
+  field_values?: { field_id: number; value: string }[];
 };
 
 type SortDir = "asc" | "desc";
@@ -197,6 +199,10 @@ export function TransactionsPage() {
   const [note, setNote] = useState<string>("");
   const [selectedCategories, setSelectedCategories] = useState<Category[]>([]);
   const [selectedTags, setSelectedTags] = useState<Tag[]>([]);
+  const [categoryFields, setCategoryFields] = useState<CategoryField[]>([]);
+  const [fieldValueMap, setFieldValueMap] = useState<Record<number, string>>({});
+  const [fieldValueOptions, setFieldValueOptions] = useState<Record<number, string[]>>({});
+  const fieldValueTimers = React.useRef<Record<number, any>>({});
 
   async function loadMeta() {
     const [cRes, tRes] = await Promise.all([api.get("/categories"), api.get("/tags")]);
@@ -340,6 +346,11 @@ export function TransactionsPage() {
     setNote(it.note || "");
     setSelectedCategories(it.categories || []);
     setSelectedTags(it.tags || []);
+    const map: Record<number, string> = {};
+    (it.field_values || []).forEach((fv) => {
+      if (fv && typeof fv.field_id === "number" && typeof fv.value === "string") map[fv.field_id] = fv.value;
+    });
+    setFieldValueMap(map);
     setOpen(true);
   }
 
@@ -352,6 +363,9 @@ export function TransactionsPage() {
     setNote("");
     setSelectedCategories([]);
     setSelectedTags([]);
+    setCategoryFields([]);
+    setFieldValueMap({});
+    setFieldValueOptions({});
   }
 
   function openCreate() {
@@ -368,7 +382,50 @@ export function TransactionsPage() {
     setNote(tx.note || "");
     setSelectedCategories(tx.categories || []);
     setSelectedTags(tx.tags || []);
+    const map: Record<number, string> = {};
+    (tx.field_values || []).forEach((fv) => {
+      if (fv && typeof fv.field_id === "number" && typeof fv.value === "string") map[fv.field_id] = fv.value;
+    });
+    setFieldValueMap(map);
     setOpen(true);
+  }
+
+  async function loadFieldsForCategories(categoryIds: number[]) {
+    if (categoryIds.length === 0) {
+      setCategoryFields([]);
+      return;
+    }
+    const res = await Promise.all(categoryIds.map((id) => api.get(`/categories/${id}/fields`)));
+    const merged = res.flatMap((r) => (r.data || []) as CategoryField[]);
+    const byId = new Map<number, CategoryField>();
+    merged.forEach((f) => {
+      if (f && typeof f.id === "number") byId.set(f.id, f);
+    });
+    setCategoryFields(Array.from(byId.values()));
+  }
+
+  useEffect(() => {
+    if (!open) return;
+    const ids = (selectedCategories || []).map((c) => c.id);
+    loadFieldsForCategories(ids).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, selectedCategories.map((c) => c.id).join(",")]);
+
+  useEffect(() => {
+    const allowed = new Set(categoryFields.map((f) => f.id));
+    setFieldValueMap((prev) => {
+      const next: Record<number, string> = {};
+      Object.entries(prev).forEach(([k, v]) => {
+        const id = Number(k);
+        if (allowed.has(id) && String(v || "").trim() !== "") next[id] = String(v);
+      });
+      return next;
+    });
+  }, [categoryFields]);
+
+  async function fetchFieldValueOptions(fieldId: number, query: string) {
+    const res = await api.get(`/category-fields/${fieldId}/values`, { params: { q: query || undefined } });
+    setFieldValueOptions((prev) => ({ ...prev, [fieldId]: (res.data || []) as string[] }));
   }
 
   async function save() {
@@ -381,7 +438,10 @@ export function TransactionsPage() {
       occurred_at: occurredAt.toISOString(),
       note: note || null,
       category_ids: selectedCategories.map((c) => c.id),
-      tag_ids: selectedTags.map((x) => x.id)
+      tag_ids: selectedTags.map((x) => x.id),
+      field_values: Object.entries(fieldValueMap)
+        .map(([field_id, value]) => ({ field_id: Number(field_id), value }))
+        .filter((x) => x.field_id > 0 && String(x.value || "").trim() !== "")
     };
     try {
       if (editing) {
@@ -927,6 +987,46 @@ export function TransactionsPage() {
               maxRows={12}
               sx={{ "& textarea": { resize: "vertical" } }}
             />
+
+            {categoryFields.length > 0 ? (
+              <>
+                <Divider />
+                <Typography variant="subtitle2">{t("fields")}</Typography>
+                {categoryFields.map((f) => (
+                  <Autocomplete
+                    key={f.id}
+                    freeSolo
+                    options={fieldValueOptions[f.id] || []}
+                    value={fieldValueMap[f.id] || ""}
+                    inputValue={fieldValueMap[f.id] || ""}
+                    onOpen={() => {
+                      if ((fieldValueOptions[f.id] || []).length === 0) {
+                        fetchFieldValueOptions(f.id, "").catch(() => {});
+                      }
+                    }}
+                    onInputChange={(_, v) => {
+                      setFieldValueMap((prev) => ({ ...prev, [f.id]: v }));
+                      if (fieldValueTimers.current[f.id]) clearTimeout(fieldValueTimers.current[f.id]);
+                      fieldValueTimers.current[f.id] = setTimeout(() => {
+                        fetchFieldValueOptions(f.id, v).catch(() => {});
+                      }, 250);
+                    }}
+                    onChange={(_, v) => {
+                      const next = typeof v === "string" ? v : String(v || "");
+                      setFieldValueMap((prev) => ({ ...prev, [f.id]: next }));
+                    }}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        label={f.name}
+                        required={!!f.is_required}
+                        helperText={f.is_required ? t("required") : undefined}
+                      />
+                    )}
+                  />
+                ))}
+              </>
+            ) : null}
           </Stack>
         </DialogContent>
         <DialogActions>

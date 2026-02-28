@@ -119,5 +119,14 @@
   "user": "ユーザー",
   "selectUser": "ユーザーを選択",
   "viewing": "表示中",
-  "actions": "アクション"
+  "actions": "アクション",
+  "fields": "フィールド",
+  "categoryFields": "カテゴリフィールド",
+  "fieldName": "フィールド名",
+  "required": "必須",
+  "yes": "はい",
+  "no": "いいえ",
+  "noFields": "フィールドがありません",
+  "close": "閉じる",
+  "confirmDeleteCategoryField": "このフィールドを削除しますか？保存済みの値も削除されます。"
 }

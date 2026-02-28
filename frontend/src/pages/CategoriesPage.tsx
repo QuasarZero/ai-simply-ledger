@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Button,
   Checkbox,
+  FormControlLabel,
   Dialog,
   DialogActions,
   DialogContent,
@@ -28,6 +29,7 @@ import { safeParseJson } from "../storage";
 import { PaginationBar } from "../components/PaginationBar";
 
 type Category = { id: number; name: string; description?: string | null };
+type CategoryField = { id: number; category_id: number; name: string; is_required: boolean; created_at: string };
 type SortDir = "asc" | "desc";
 type SortKey = "name" | "description";
 const STORAGE_KEY = "pageState:categories";
@@ -69,6 +71,13 @@ export function CategoriesPage() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [saving, setSaving] = useState(false);
+  const [openFields, setOpenFields] = useState(false);
+  const [fieldsCategory, setFieldsCategory] = useState<Category | null>(null);
+  const [fields, setFields] = useState<CategoryField[]>([]);
+  const [fieldEditing, setFieldEditing] = useState<CategoryField | null>(null);
+  const [fieldName, setFieldName] = useState("");
+  const [fieldRequired, setFieldRequired] = useState(false);
+  const [fieldSaving, setFieldSaving] = useState(false);
 
   async function load() {
     const res = await api.get("/categories");
@@ -105,6 +114,58 @@ export function CategoriesPage() {
     setName(c.name);
     setDescription(c.description || "");
     setOpen(true);
+  }
+
+  async function openManageFields(c: Category) {
+    if (!me?.is_admin) return;
+    setFieldsCategory(c);
+    setOpenFields(true);
+    setFieldEditing(null);
+    setFieldName("");
+    setFieldRequired(false);
+    const res = await api.get(`/categories/${c.id}/fields`);
+    setFields((res.data || []) as CategoryField[]);
+  }
+
+  function openCreateField() {
+    setFieldEditing(null);
+    setFieldName("");
+    setFieldRequired(false);
+  }
+
+  function openEditField(f: CategoryField) {
+    setFieldEditing(f);
+    setFieldName(f.name);
+    setFieldRequired(!!f.is_required);
+  }
+
+  async function saveField() {
+    if (!fieldsCategory) return;
+    if (fieldSaving) return;
+    const trimmed = fieldName.trim();
+    if (!trimmed) return;
+    setFieldSaving(true);
+    try {
+      if (fieldEditing) {
+        await api.patch(`/category-fields/${fieldEditing.id}`, { name: trimmed, is_required: fieldRequired });
+      } else {
+        await api.post(`/categories/${fieldsCategory.id}/fields`, { name: trimmed, is_required: fieldRequired });
+      }
+      const res = await api.get(`/categories/${fieldsCategory.id}/fields`);
+      setFields((res.data || []) as CategoryField[]);
+      openCreateField();
+    } finally {
+      setFieldSaving(false);
+    }
+  }
+
+  async function deleteField(id: number) {
+    if (!fieldsCategory) return;
+    const ok = await confirm({ message: t("confirmDeleteCategoryField"), danger: true });
+    if (!ok) return;
+    await api.delete(`/category-fields/${id}`);
+    const res = await api.get(`/categories/${fieldsCategory.id}/fields`);
+    setFields((res.data || []) as CategoryField[]);
   }
 
   async function save() {
@@ -285,6 +346,11 @@ export function CategoriesPage() {
                   <Button size="small" onClick={() => openEdit(c)}>
                     {t("edit")}
                   </Button>
+                  {me?.is_admin ? (
+                    <Button size="small" onClick={() => openManageFields(c)}>
+                      {t("fields")}
+                    </Button>
+                  ) : null}
                   <Button size="small" color="error" onClick={() => del(c.id)}>
                     {t("delete")}
                   </Button>
@@ -304,6 +370,96 @@ export function CategoriesPage() {
           }}
         />
       </Paper>
+
+      <Dialog
+        open={openFields}
+        onClose={() => {
+          if (fieldSaving) return;
+          setOpenFields(false);
+        }}
+        fullWidth
+        maxWidth="md"
+      >
+        <DialogTitle>
+          {t("categoryFields")}: {fieldsCategory?.name || ""}
+        </DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
+              <TextField
+                label={t("fieldName")}
+                value={fieldName}
+                onChange={(e) => setFieldName(e.target.value)}
+                size="small"
+                sx={{ width: 260 }}
+              />
+              <FormControlLabel
+                control={<Checkbox checked={fieldRequired} onChange={(e) => setFieldRequired(e.target.checked)} />}
+                label={t("required")}
+              />
+              <Button variant="contained" onClick={saveField} disabled={fieldSaving}>
+                {fieldEditing ? t("save") : t("create")}
+              </Button>
+              {fieldEditing ? (
+                <Button
+                  variant="outlined"
+                  onClick={() => {
+                    openCreateField();
+                  }}
+                  disabled={fieldSaving}
+                >
+                  {t("cancel")}
+                </Button>
+              ) : null}
+            </Stack>
+
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>{t("fieldName")}</TableCell>
+                  <TableCell sx={{ width: 140 }}>{t("required")}</TableCell>
+                  <TableCell sx={{ width: 180 }} />
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {fields.map((f) => (
+                  <TableRow key={f.id}>
+                    <TableCell>{f.name}</TableCell>
+                    <TableCell>{f.is_required ? t("yes") : t("no")}</TableCell>
+                    <TableCell align="right">
+                      <Button size="small" onClick={() => openEditField(f)}>
+                        {t("edit")}
+                      </Button>
+                      <Button size="small" color="error" onClick={() => deleteField(f.id)}>
+                        {t("delete")}
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {fields.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={3}>
+                      <Typography variant="body2" color="text.secondary">
+                        {t("noFields")}
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                ) : null}
+              </TableBody>
+            </Table>
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => {
+              if (fieldSaving) return;
+              setOpenFields(false);
+            }}
+          >
+            {t("close")}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Dialog
         open={open}

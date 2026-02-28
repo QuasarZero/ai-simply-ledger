@@ -119,5 +119,14 @@
   "user": "User",
   "selectUser": "Select user",
   "viewing": "Viewing",
-  "actions": "Actions"
+  "actions": "Actions",
+  "fields": "Fields",
+  "categoryFields": "Category fields",
+  "fieldName": "Field name",
+  "required": "Required",
+  "yes": "Yes",
+  "no": "No",
+  "noFields": "No fields yet",
+  "close": "Close",
+  "confirmDeleteCategoryField": "Delete this field? It will remove stored values for this field."
 }
