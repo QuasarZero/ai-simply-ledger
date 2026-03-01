@@ -3,6 +3,7 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { CssBaseline, ThemeProvider } from "@mui/material";
 import { LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
+import { enUS, jaJP, zhCN } from "@mui/x-date-pickers/locales";
 import { useTranslation } from "react-i18next";
 
 import { AuthProvider } from "./auth/AuthContext";
@@ -26,6 +27,11 @@ export default function App() {
   const theme = useMemo(() => buildTheme(mode), [mode]);
 
   const adapterLocale = i18n.language === "zh" ? "zh-cn" : i18n.language === "ja" ? "ja" : "en";
+  const localeText = useMemo(() => {
+    const lang = i18n.language;
+    const pack = lang === "zh" ? zhCN : lang === "ja" ? jaJP : enUS;
+    return pack.components.MuiLocalizationProvider.defaultProps.localeText;
+  }, [i18n.language]);
 
   function toggleTheme() {
     const next = mode === "light" ? "dark" : "light";
@@ -36,7 +42,7 @@ export default function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale={adapterLocale}>
+      <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale={adapterLocale} localeText={localeText}>
         <AuthProvider>
           <ToastProvider>
             <BrowserRouter>

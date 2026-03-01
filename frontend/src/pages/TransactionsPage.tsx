@@ -37,6 +37,7 @@ import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
 import { api } from "../api/client";
 import dayjs from "../dayjs";
 import { DateRangePresets } from "../components/DateRangePresets";
+import { YearMonthCalendarHeader } from "../components/YearMonthCalendarHeader";
 import { usePersistedDateRange } from "../hooks/usePersistedDateRange";
 import { useConfirm } from "../hooks/useConfirm";
 import { useSearchParams } from "react-router-dom";
@@ -230,6 +231,7 @@ export function TransactionsPage() {
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Tx | null>(null);
+  const [isCopying, setIsCopying] = useState(false);
   const [saving, setSaving] = useState(false);
   const [type, setType] = useState<"income" | "expense">("expense");
   const [amount, setAmount] = useState<number>(0);
@@ -392,10 +394,11 @@ export function TransactionsPage() {
 
   function copyTx(it: Tx) {
     setEditing(null);
+    setIsCopying(true);
     setType(it.type);
     setAmount(it.amount);
     setCurrency(it.currency);
-    setOccurredAt(dayjs(it.occurred_at));
+    setOccurredAt(dayjs());
     setNote(it.note || "");
     setSelectedCategories(it.categories || []);
     setSelectedTags(it.tags || []);
@@ -409,6 +412,7 @@ export function TransactionsPage() {
 
   function resetForm() {
     setEditing(null);
+    setIsCopying(false);
     setType("expense");
     setAmount(0);
     setCurrency("CNY");
@@ -428,6 +432,7 @@ export function TransactionsPage() {
 
   function openEdit(tx: Tx) {
     setEditing(tx);
+    setIsCopying(false);
     setType(tx.type);
     setAmount(tx.amount);
     setCurrency(tx.currency);
@@ -614,20 +619,34 @@ export function TransactionsPage() {
               label={t("startDate")}
               value={start}
               disabled={preset === "all"}
+              views={["year", "month", "day"]}
+              format="YYYY-MM-DD"
               onChange={(v) => {
                 if (!v) return;
                 setPreset("custom");
                 setStart(v);
+              }}
+              slots={{ calendarHeader: YearMonthCalendarHeader }}
+              slotProps={{
+                textField: { size: "small" },
+                actionBar: { actions: ["today"] }
               }}
             />
             <DatePicker
               label={t("endDate")}
               value={end}
               disabled={preset === "all"}
+              views={["year", "month", "day"]}
+              format="YYYY-MM-DD"
               onChange={(v) => {
                 if (!v) return;
                 setPreset("custom");
                 setEnd(v);
+              }}
+              slots={{ calendarHeader: YearMonthCalendarHeader }}
+              slotProps={{
+                textField: { size: "small" },
+                actionBar: { actions: ["today"] }
               }}
             />
           <FormControlLabel
@@ -757,6 +776,7 @@ export function TransactionsPage() {
                     }}
                   />
                 </TableCell>
+                <TableCell sx={{ width: 80 }}>ID</TableCell>
                 <TableCell sx={{ width: 110 }} sortDirection={sortKey === "occurred_at" ? sortDir : false}>
                   <TableSortLabel
                     active={sortKey === "occurred_at"}
@@ -864,8 +884,9 @@ export function TransactionsPage() {
                           return next;
                         });
                       }}
-                  />
-                </TableCell>
+                    />
+                  </TableCell>
+                  <TableCell>{it.id}</TableCell>
                   <TableCell>{dayjs(it.occurred_at).format("YYYY-MM-DD")}</TableCell>
                   <TableCell>
                     <Typography
@@ -991,7 +1012,7 @@ export function TransactionsPage() {
           }
         }}
       >
-        <DialogTitle>{editing ? t("edit") : t("create")}</DialogTitle>
+        <DialogTitle>{isCopying ? t("copy") : editing ? t("edit") : t("create")}</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
             <TextField
@@ -1021,7 +1042,18 @@ export function TransactionsPage() {
                 </MenuItem>
               ))}
             </TextField>
-            <DatePicker label={t("occurredAt")} value={occurredAt} onChange={(v) => v && setOccurredAt(v)} />
+            <DatePicker
+              label={t("occurredAt")}
+              value={occurredAt}
+              views={["year", "month", "day"]}
+              format="YYYY-MM-DD"
+              onChange={(v) => v && setOccurredAt(v)}
+              slots={{ calendarHeader: YearMonthCalendarHeader }}
+              slotProps={{
+                textField: { size: "small" },
+                actionBar: { actions: ["today"] }
+              }}
+            />
             <Autocomplete
               multiple
               options={categories}

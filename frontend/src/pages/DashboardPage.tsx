@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 
 import { api } from "../api/client";
 import { DateRangePresets } from "../components/DateRangePresets";
+import { YearMonthCalendarHeader } from "../components/YearMonthCalendarHeader";
 import { usePersistedDateRange } from "../hooks/usePersistedDateRange";
 import { useAuth } from "../auth/AuthContext";
 import { formatMoney } from "../formatMoney";
@@ -145,20 +146,34 @@ export function DashboardPage() {
             label={t("startDate")}
             value={start}
             disabled={preset === "all"}
+            views={["year", "month", "day"]}
+            format="YYYY-MM-DD"
             onChange={(v) => {
               if (!v) return;
               setPreset("custom");
               setStart(v);
+            }}
+            slots={{ calendarHeader: YearMonthCalendarHeader }}
+            slotProps={{
+              textField: { size: "small" },
+              actionBar: { actions: ["today"] }
             }}
           />
           <DatePicker
             label={t("endDate")}
             value={end}
             disabled={preset === "all"}
+            views={["year", "month", "day"]}
+            format="YYYY-MM-DD"
             onChange={(v) => {
               if (!v) return;
               setPreset("custom");
               setEnd(v);
+            }}
+            slots={{ calendarHeader: YearMonthCalendarHeader }}
+            slotProps={{
+              textField: { size: "small" },
+              actionBar: { actions: ["today"] }
             }}
           />
           {isAdmin ? (

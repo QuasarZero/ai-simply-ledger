@@ -29,12 +29,13 @@ import {
 } from "@mui/material";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { useTranslation } from "react-i18next";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
 
 import { api } from "../api/client";
 import dayjs from "../dayjs";
 import { DateRangePresets } from "../components/DateRangePresets";
+import { YearMonthCalendarHeader } from "../components/YearMonthCalendarHeader";
 import { usePersistedDateRange } from "../hooks/usePersistedDateRange";
 import { useConfirm } from "../hooks/useConfirm";
 import { safeParseJson } from "../storage";
@@ -82,6 +83,7 @@ export function AdminTransactionsPage() {
   const { t } = useTranslation();
   const { confirm, dialog } = useConfirm();
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [items, setItems] = useState<Tx[]>([]);
   const [total, setTotal] = useState<number>(0);
   const [users, setUsers] = useState<User[]>([]);
@@ -464,20 +466,34 @@ export function AdminTransactionsPage() {
               label={t("startDate")}
               value={start}
               disabled={preset === "all"}
+              views={["year", "month", "day"]}
+              format="YYYY-MM-DD"
               onChange={(v) => {
                 if (!v) return;
                 setPreset("custom");
                 setStart(v);
+              }}
+              slots={{ calendarHeader: YearMonthCalendarHeader }}
+              slotProps={{
+                textField: { size: "small" },
+                actionBar: { actions: ["today"] }
               }}
             />
             <DatePicker
               label={t("endDate")}
               value={end}
               disabled={preset === "all"}
+              views={["year", "month", "day"]}
+              format="YYYY-MM-DD"
               onChange={(v) => {
                 if (!v) return;
                 setPreset("custom");
                 setEnd(v);
+              }}
+              slots={{ calendarHeader: YearMonthCalendarHeader }}
+              slotProps={{
+                textField: { size: "small" },
+                actionBar: { actions: ["today"] }
               }}
             />
             <FormControlLabel
@@ -573,6 +589,19 @@ export function AdminTransactionsPage() {
           <Typography variant="h6">
             {t("adminTransactions")} ({total})
           </Typography>
+          <Button
+            size="small"
+            variant="outlined"
+            onClick={() => {
+              const p = new URLSearchParams();
+              if (linkCategoryId) p.set("categoryId", String(linkCategoryId));
+              if (linkTagId) p.set("tagId", String(linkTagId));
+              const q = p.toString();
+              navigate(`/transactions${q ? `?${q}` : ""}`);
+            }}
+          >
+            {t("viewMyTransactions")}
+          </Button>
           {selectedIds.size > 0 ? (
             <Stack direction="row" spacing={1} alignItems="center">
               <Typography variant="body2">
@@ -618,6 +647,7 @@ export function AdminTransactionsPage() {
                     }}
                   />
                 </TableCell>
+                <TableCell sx={{ width: 80 }}>ID</TableCell>
                 <TableCell sx={{ width: 300 }} sortDirection={sortKey === "user" ? sortDir : false}>
                   <TableSortLabel
                     active={sortKey === "user"}
@@ -736,6 +766,7 @@ export function AdminTransactionsPage() {
                       }}
                     />
                   </TableCell>
+                  <TableCell>{it.id}</TableCell>
                   <TableCell>
                     {it.user
                       ? `${it.user.username} (${it.user.email})`
