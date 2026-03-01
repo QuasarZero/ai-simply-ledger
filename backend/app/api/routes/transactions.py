@@ -162,6 +162,12 @@ def list_transactions(
         query = query.filter(Transaction.amount <= Decimal(str(max_amount)))
 
     dir_is_asc = sort_dir == "asc"
+    if sort_key == "id":
+        query = query.order_by(Transaction.id.asc() if dir_is_asc else Transaction.id.desc())
+        total = query.count()
+        items = query.offset(skip).limit(min(limit, 500)).all()
+        return TransactionList(items=[_tx_to_out(t) for t in items], total=total)
+
     order_col = Transaction.occurred_at
     field_sort_id: int | None = None
     if sort_key and category_id is not None:

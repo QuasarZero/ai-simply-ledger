@@ -41,6 +41,11 @@ class TopItem(BaseModel):
     value: float
 
 
+class NameId(BaseModel):
+    id: int
+    name: str
+
+
 class TopTransaction(BaseModel):
     id: int
     occurred_at: str
@@ -48,8 +53,8 @@ class TopTransaction(BaseModel):
     currency: str
     amount_raw: float
     note: str | None
-    categories: list[str]
-    tags: list[str]
+    categories: list[NameId]
+    tags: list[NameId]
 
 
 class DashboardOut(BaseModel):

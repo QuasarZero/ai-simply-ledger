@@ -14,6 +14,7 @@ from app.schemas.stats import (
     ByCategory,
     ByDay,
     DashboardOut,
+    NameId,
     PieSlice,
     SummaryOut,
     TopItem,
@@ -222,8 +223,9 @@ def dashboard(
                     currency=tx.currency,
                     amount_raw=float(tx.amount),
                     note=tx.note,
-                    categories=[c.name for c in tx.categories] or [cat_names[0]],
-                    tags=[t.name for t in tx.tags] or [tag_names[0]],
+                    categories=[NameId(id=c.id, name=c.name) for c in tx.categories]
+                    or [NameId(id=0, name=cat_names[0])],
+                    tags=[NameId(id=t.id, name=t.name) for t in tx.tags] or [NameId(id=0, name=tag_names[0])],
                 )
             )
         else:
@@ -250,8 +252,9 @@ def dashboard(
                     currency=tx.currency,
                     amount_raw=float(tx.amount),
                     note=tx.note,
-                    categories=[c.name for c in tx.categories] or [cat_names[0]],
-                    tags=[t.name for t in tx.tags] or [tag_names[0]],
+                    categories=[NameId(id=c.id, name=c.name) for c in tx.categories]
+                    or [NameId(id=0, name=cat_names[0])],
+                    tags=[NameId(id=t.id, name=t.name) for t in tx.tags] or [NameId(id=0, name=tag_names[0])],
                 )
             )
 

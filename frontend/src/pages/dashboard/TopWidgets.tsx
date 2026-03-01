@@ -1,9 +1,11 @@
-import { Grid, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from "@mui/material";
+import { Chip, Grid, Paper, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from "@mui/material";
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router-dom";
 
 import dayjs from "../../dayjs";
 import { formatMoney } from "../../formatMoney";
 import type { DashboardData } from "../DashboardPage";
+import { useAuth } from "../../auth/AuthContext";
 
 export function TopTable({
   title,
@@ -44,6 +46,28 @@ export function TopTable({
 
 export function Top10ExpenseTransactions({ data }: { data: DashboardData | null }) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
+  const { me } = useAuth();
+  const requestedUserId = data?.requested_user_id ?? null;
+
+  function goCategory(categoryId: number) {
+    if (categoryId <= 0) return;
+    const p = new URLSearchParams();
+    p.set("categoryId", String(categoryId));
+    if (me?.is_admin && requestedUserId && requestedUserId > 0) p.set("userId", String(requestedUserId));
+    const base = me?.is_admin ? "/admin/transactions" : "/transactions";
+    navigate(`${base}?${p.toString()}`);
+  }
+
+  function goTag(tagId: number) {
+    if (tagId <= 0) return;
+    const p = new URLSearchParams();
+    p.set("tagId", String(tagId));
+    if (me?.is_admin && requestedUserId && requestedUserId > 0) p.set("userId", String(requestedUserId));
+    const base = me?.is_admin ? "/admin/transactions" : "/transactions";
+    navigate(`${base}?${p.toString()}`);
+  }
+
   return (
     <Paper sx={{ p: 2 }}>
       <Typography variant="subtitle1" sx={{ mb: 1 }}>
@@ -67,8 +91,34 @@ export function Top10ExpenseTransactions({ data }: { data: DashboardData | null 
                   <TableCell>{dayjs(x.occurred_at).format("YYYY-MM-DD")}</TableCell>
                 <TableCell align="right">-{formatMoney(x.amount_base)}</TableCell>
                 <TableCell>{x.currency}</TableCell>
-                <TableCell>{(x.categories || []).join(", ")}</TableCell>
-                <TableCell>{(x.tags || []).join(", ")}</TableCell>
+                <TableCell>
+                  <Stack direction="row" flexWrap="wrap" useFlexGap>
+                    {(x.categories || []).map((c) => (
+                      <Chip
+                        key={c.id}
+                        label={c.name}
+                        size="small"
+                        clickable={c.id > 0}
+                        onClick={() => goCategory(c.id)}
+                        sx={{ mr: 0.5, mb: 0.5 }}
+                      />
+                    ))}
+                  </Stack>
+                </TableCell>
+                <TableCell>
+                  <Stack direction="row" flexWrap="wrap" useFlexGap>
+                    {(x.tags || []).map((tg) => (
+                      <Chip
+                        key={tg.id}
+                        label={tg.name}
+                        size="small"
+                        clickable={tg.id > 0}
+                        onClick={() => goTag(tg.id)}
+                        sx={{ mr: 0.5, mb: 0.5 }}
+                      />
+                    ))}
+                  </Stack>
+                </TableCell>
                 <TableCell sx={{ maxWidth: 260, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                   {x.note || ""}
                 </TableCell>
@@ -83,6 +133,28 @@ export function Top10ExpenseTransactions({ data }: { data: DashboardData | null 
 
 export function Top10IncomeTransactions({ data }: { data: DashboardData | null }) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
+  const { me } = useAuth();
+  const requestedUserId = data?.requested_user_id ?? null;
+
+  function goCategory(categoryId: number) {
+    if (categoryId <= 0) return;
+    const p = new URLSearchParams();
+    p.set("categoryId", String(categoryId));
+    if (me?.is_admin && requestedUserId && requestedUserId > 0) p.set("userId", String(requestedUserId));
+    const base = me?.is_admin ? "/admin/transactions" : "/transactions";
+    navigate(`${base}?${p.toString()}`);
+  }
+
+  function goTag(tagId: number) {
+    if (tagId <= 0) return;
+    const p = new URLSearchParams();
+    p.set("tagId", String(tagId));
+    if (me?.is_admin && requestedUserId && requestedUserId > 0) p.set("userId", String(requestedUserId));
+    const base = me?.is_admin ? "/admin/transactions" : "/transactions";
+    navigate(`${base}?${p.toString()}`);
+  }
+
   return (
     <Paper sx={{ p: 2 }}>
       <Typography variant="subtitle1" sx={{ mb: 1 }}>
@@ -108,8 +180,34 @@ export function Top10IncomeTransactions({ data }: { data: DashboardData | null }
                   <TableCell>{dayjs(x.occurred_at).format("YYYY-MM-DD")}</TableCell>
                 <TableCell align="right">+{formatMoney(x.amount_base)}</TableCell>
                 <TableCell>{x.currency}</TableCell>
-                <TableCell>{(x.categories || []).join(", ")}</TableCell>
-                <TableCell>{(x.tags || []).join(", ")}</TableCell>
+                <TableCell>
+                  <Stack direction="row" flexWrap="wrap" useFlexGap>
+                    {(x.categories || []).map((c) => (
+                      <Chip
+                        key={c.id}
+                        label={c.name}
+                        size="small"
+                        clickable={c.id > 0}
+                        onClick={() => goCategory(c.id)}
+                        sx={{ mr: 0.5, mb: 0.5 }}
+                      />
+                    ))}
+                  </Stack>
+                </TableCell>
+                <TableCell>
+                  <Stack direction="row" flexWrap="wrap" useFlexGap>
+                    {(x.tags || []).map((tg) => (
+                      <Chip
+                        key={tg.id}
+                        label={tg.name}
+                        size="small"
+                        clickable={tg.id > 0}
+                        onClick={() => goTag(tg.id)}
+                        sx={{ mr: 0.5, mb: 0.5 }}
+                      />
+                    ))}
+                  </Stack>
+                </TableCell>
                 <TableCell sx={{ maxWidth: 260, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                   {x.note || ""}
                 </TableCell>

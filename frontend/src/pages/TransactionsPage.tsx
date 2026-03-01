@@ -62,7 +62,7 @@ type Tx = {
 };
 
 type SortDir = "asc" | "desc";
-type SortKey = "occurred_at" | "type" | "amount" | "currency" | "categories" | "tags" | "note" | `field:${number}`;
+type SortKey = "id" | "occurred_at" | "type" | "amount" | "currency" | "categories" | "tags" | "note" | `field:${number}`;
 
 function isFieldSortKey(v: unknown): v is `field:${number}` {
   return typeof v === "string" && /^field:\d+$/.test(v);
@@ -149,7 +149,7 @@ export function TransactionsPage() {
   const [bulkSaving, setBulkSaving] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>(() => {
     const v = persisted.sortKey;
-    const keys: Array<Exclude<SortKey, `field:${number}`>> = ["occurred_at", "type", "amount", "currency", "categories", "tags", "note"];
+    const keys: Array<Exclude<SortKey, `field:${number}`>> = ["id", "occurred_at", "type", "amount", "currency", "categories", "tags", "note"];
     if (typeof v === "string" && keys.includes(v as any)) return v as SortKey;
     if (isFieldSortKey(v)) return v;
     return "occurred_at";
@@ -356,7 +356,7 @@ export function TransactionsPage() {
       return;
     }
     setSortKey(nextKey);
-    setSortDir(nextKey === "occurred_at" || nextKey === "amount" ? "desc" : "asc");
+    setSortDir(nextKey === "occurred_at" || nextKey === "amount" || nextKey === "id" ? "desc" : "asc");
   }
 
   const sortedItems = useMemo(() => {
@@ -776,7 +776,15 @@ export function TransactionsPage() {
                     }}
                   />
                 </TableCell>
-                <TableCell sx={{ width: 80 }}>ID</TableCell>
+                <TableCell sx={{ width: 80 }} sortDirection={sortKey === "id" ? sortDir : false}>
+                  <TableSortLabel
+                    active={sortKey === "id"}
+                    direction={sortKey === "id" ? sortDir : "asc"}
+                    onClick={() => requestSort("id")}
+                  >
+                    {t("id")}
+                  </TableSortLabel>
+                </TableCell>
                 <TableCell sx={{ width: 110 }} sortDirection={sortKey === "occurred_at" ? sortDir : false}>
                   <TableSortLabel
                     active={sortKey === "occurred_at"}
@@ -862,7 +870,7 @@ export function TransactionsPage() {
                     {t("note")}
                   </TableSortLabel>
                 </TableCell>
-                <TableCell sx={{width: 120}}>{t("actions")}</TableCell>
+                <TableCell sx={{width: 130}}>{t("actions")}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>

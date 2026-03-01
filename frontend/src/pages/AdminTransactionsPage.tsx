@@ -57,7 +57,7 @@ type Tx = {
 };
 
 type SortDir = "asc" | "desc";
-type SortKey = "user" | "occurred_at" | "type" | "amount" | "currency" | "categories" | "tags" | "note" | `field:${number}`;
+type SortKey = "id" | "user" | "occurred_at" | "type" | "amount" | "currency" | "categories" | "tags" | "note" | `field:${number}`;
 const STORAGE_KEY = "pageState:adminTransactions";
 
 function isFieldSortKey(v: unknown): v is `field:${number}` {
@@ -145,7 +145,7 @@ export function AdminTransactionsPage() {
   const [bulkSaving, setBulkSaving] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>(() => {
     const v = persisted.sortKey;
-    const keys: Array<Exclude<SortKey, `field:${number}`>> = ["user", "occurred_at", "type", "amount", "currency", "categories", "tags", "note"];
+    const keys: Array<Exclude<SortKey, `field:${number}`>> = ["id", "user", "occurred_at", "type", "amount", "currency", "categories", "tags", "note"];
     if (typeof v === "string" && keys.includes(v as any)) return v as SortKey;
     if (isFieldSortKey(v)) return v;
     return "occurred_at";
@@ -351,7 +351,7 @@ export function AdminTransactionsPage() {
       return;
     }
     setSortKey(nextKey);
-    setSortDir(nextKey === "occurred_at" || nextKey === "amount" ? "desc" : "asc");
+    setSortDir(nextKey === "occurred_at" || nextKey === "amount" || nextKey === "id" ? "desc" : "asc");
   }
 
   const sortedItems = useMemo(() => {
@@ -647,7 +647,15 @@ export function AdminTransactionsPage() {
                     }}
                   />
                 </TableCell>
-                <TableCell sx={{ width: 80 }}>ID</TableCell>
+                <TableCell sx={{ width: 80 }} sortDirection={sortKey === "id" ? sortDir : false}>
+                  <TableSortLabel
+                    active={sortKey === "id"}
+                    direction={sortKey === "id" ? sortDir : "asc"}
+                    onClick={() => requestSort("id")}
+                  >
+                    {t("id")}
+                  </TableSortLabel>
+                </TableCell>
                 <TableCell sx={{ width: 300 }} sortDirection={sortKey === "user" ? sortDir : false}>
                   <TableSortLabel
                     active={sortKey === "user"}
@@ -742,7 +750,7 @@ export function AdminTransactionsPage() {
                     {t("note")}
                   </TableSortLabel>
                 </TableCell>
-                <TableCell sx={{width: 120}}>{t("actions")}</TableCell>
+                <TableCell sx={{width: 130}}>{t("actions")}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>

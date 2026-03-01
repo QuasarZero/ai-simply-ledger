@@ -28,8 +28,8 @@ export type DashboardData = {
     currency: string;
     amount_raw: number;
     note?: string | null;
-    categories: string[];
-    tags: string[];
+    categories: { id: number; name: string }[];
+    tags: { id: number; name: string }[];
   }[];
   top_income_transactions: {
     id: number;
@@ -38,8 +38,8 @@ export type DashboardData = {
     currency: string;
     amount_raw: number;
     note?: string | null;
-    categories: string[];
-    tags: string[];
+    categories: { id: number; name: string }[];
+    tags: { id: number; name: string }[];
   }[];
   top_expense_categories_amount: { id: number; name: string; value: number }[];
   top_expense_tags_amount: { id: number; name: string; value: number }[];

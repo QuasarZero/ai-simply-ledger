@@ -355,6 +355,8 @@ def list_transactions(
             Transaction.occurred_at.desc(),
             Transaction.id.desc(),
         )
+    elif sort_key == "id":
+        query = query.order_by(Transaction.id.asc() if dir_is_asc else Transaction.id.desc())
     else:
         order_col = Transaction.occurred_at
         field_sort_id: int | None = None
