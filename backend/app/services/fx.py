@@ -199,6 +199,20 @@ def sync_fx_rates(
         if "USD" not in cur_list:
             cur_list = ["USD", *cur_list]
 
+    # Validate against provider-supported currencies (best-effort).
+    try:
+        supported = fetch_currency_catalog()
+        supported_codes = {k.upper() for k in supported.keys()}
+        if supported_codes:
+            unsupported = sorted({c for c in cur_list if c.upper() not in supported_codes and c.upper() != "USD"})
+            if unsupported:
+                raise ValueError(
+                    "Unsupported currency codes for FX provider: " + ", ".join(unsupported)
+                )
+    except httpx.HTTPError:
+        # If provider is temporarily unreachable, don't block syncing; it will fail later per-request anyway.
+        pass
+
     rows_upserted = 0
     days = 0
 

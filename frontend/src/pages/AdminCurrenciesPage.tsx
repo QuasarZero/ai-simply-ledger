@@ -254,7 +254,10 @@ export function AdminCurrenciesPage() {
           pageSize={pageSize}
           total={sortedItems.length}
           onChangePage={setPage}
-          onChangePageSize={setPageSize}
+          onChangePageSize={(n) => {
+            setPage(0);
+            setPageSize(n);
+          }}
         />
       </Paper>
 
@@ -303,4 +306,3 @@ export function AdminCurrenciesPage() {
     </Stack>
   );
 }
-

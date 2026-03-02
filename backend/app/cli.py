@@ -88,15 +88,20 @@ def cmd_sync_fx(args: argparse.Namespace) -> int:
         currencies = None
         if args.currencies:
             currencies = [x.strip().upper() for x in args.currencies.split(",") if x.strip()]
-        result = sync_fx_rates(
-            db,
-            start=start,
-            end=end,
-            currencies=currencies,
-            source=settings.fx_source,
-        )
-        print(result)
-        return 0
+        try:
+            result = sync_fx_rates(
+                db,
+                start=start,
+                end=end,
+                currencies=currencies,
+                source=settings.fx_source,
+            )
+        except ValueError as e:
+            print(str(e), file=sys.stderr)
+            return 1
+        else:
+            print(result)
+            return 0
     finally:
         db.close()
 

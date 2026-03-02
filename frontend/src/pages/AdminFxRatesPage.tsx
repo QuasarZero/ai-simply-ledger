@@ -24,12 +24,14 @@ import { usePersistedDateRange } from "../hooks/usePersistedDateRange";
 import { emitToast } from "../components/toastBus";
 import dayjs from "../dayjs";
 import { PaginationBar } from "../components/PaginationBar";
+import { safeParseJson } from "../storage";
 
 type FxSyncResult = { days: number; currencies: number; rows_upserted: number };
 type Currency = { code: string; name: string };
 type FxRateRow = { rate_date: string; currency: string; usd_rate: number; source: string };
 type SortDir = "asc" | "desc";
 type SortKey = "date" | string;
+const STORAGE_KEY = "pageState:adminFxRates";
 
 export function AdminFxRatesPage() {
   const { t } = useTranslation();
@@ -39,10 +41,19 @@ export function AdminFxRatesPage() {
   const [result, setResult] = useState<FxSyncResult | null>(null);
   const [currencies, setCurrencies] = useState<Currency[]>([]);
   const [rows, setRows] = useState<FxRateRow[]>([]);
-  const [sortKey, setSortKey] = useState<SortKey>("date");
-  const [sortDir, setSortDir] = useState<SortDir>("desc");
-  const [pageSize, setPageSize] = useState(50);
-  const [page, setPage] = useState(0);
+  const persisted = useMemo(() => safeParseJson<Record<string, any>>(STORAGE_KEY) || {}, []);
+  const [sortKey, setSortKey] = useState<SortKey>(() => (typeof persisted.sortKey === "string" ? persisted.sortKey : "date"));
+  const [sortDir, setSortDir] = useState<SortDir>(() =>
+    persisted.sortDir === "asc" || persisted.sortDir === "desc" ? persisted.sortDir : "desc"
+  );
+  const [pageSize, setPageSize] = useState<number>(() => {
+    const v = persisted.pageSize;
+    return typeof v === "number" && Number.isFinite(v) && v > 0 ? v : 50;
+  });
+  const [page, setPage] = useState<number>(() => {
+    const v = persisted.page;
+    return typeof v === "number" && Number.isFinite(v) && v >= 0 ? v : 0;
+  });
 
   useEffect(() => {
     document.title = `${t("fxRates")} | ${t("appTitle")}`;
@@ -100,6 +111,17 @@ export function AdminFxRatesPage() {
     const out = base.includes("USD") ? base : ["USD", ...base];
     return out.length ? out : ["USD", "CNY", "EUR", "JPY", "HKD", "GBP"];
   }, [currencies]);
+
+  useEffect(() => {
+    const payload = { sortKey, sortDir, page, pageSize };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+  }, [page, pageSize, sortDir, sortKey]);
+
+  useEffect(() => {
+    if (sortKey === "date") return;
+    const key = String(sortKey).toUpperCase();
+    if (!currencyCodes.includes(key)) setSortKey("date");
+  }, [currencyCodes, sortKey]);
 
   const rateByDateCurrency = useMemo(() => {
     const map = new Map<string, Map<string, FxRateRow>>();
@@ -168,6 +190,11 @@ export function AdminFxRatesPage() {
     const startIdx = page * pageSize;
     return sortedDates.slice(startIdx, startIdx + pageSize);
   }, [page, pageSize, sortedDates]);
+
+  useEffect(() => {
+    if (page === 0) return;
+    if (page * pageSize >= sortedDates.length) setPage(0);
+  }, [page, pageSize, sortedDates.length]);
 
   function formatRate(v: number | null) {
     if (v == null) return "-";
@@ -279,7 +306,10 @@ export function AdminFxRatesPage() {
           pageSize={pageSize}
           total={sortedDates.length}
           onChangePage={setPage}
-          onChangePageSize={setPageSize}
+          onChangePageSize={(n) => {
+            setPage(0);
+            setPageSize(n);
+          }}
         />
       </Paper>
     </Stack>

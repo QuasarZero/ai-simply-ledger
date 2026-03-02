@@ -102,13 +102,16 @@ def admin_fx_sync(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin),
 ):
-    result = sync_fx_rates(
-        db,
-        start=payload.start,
-        end=payload.end,
-        currencies=payload.currencies,
-        source=settings.fx_source,
-    )
+    try:
+        result = sync_fx_rates(
+            db,
+            start=payload.start,
+            end=payload.end,
+            currencies=payload.currencies,
+            source=settings.fx_source,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     audit_log(
         action="admin.fx_sync",
         actor=current_user,
