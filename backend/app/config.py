@@ -27,6 +27,18 @@ class Settings(BaseSettings):
     fx_base_url: str = "https://api.frankfurter.app"
     fx_cache_ttl_seconds: int = 60 * 60 * 6
 
+    frontend_base_url: str = "http://localhost:8080"
+
+    password_reset_token_expire_minutes: int = 30
+    email_mode: str = "log"  # log | smtp
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_from: str = ""
+    smtp_tls: bool = True
+    smtp_ssl: bool = False
+
     admin_username: str = "admin"
     admin_email: str = "admin@example.com"
     admin_password: str = "123qaz"

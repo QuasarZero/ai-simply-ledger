@@ -11,6 +11,7 @@ import { buildTheme } from "./theme";
 import { ProtectedRoute, AdminRoute } from "./components/ProtectedRoute";
 import { AppLayout } from "./layout/AppLayout";
 import { LoginPage } from "./pages/LoginPage";
+import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { TransactionsPage } from "./pages/TransactionsPage";
 import { AdminTransactionsPage } from "./pages/AdminTransactionsPage";
@@ -48,6 +49,7 @@ export default function App() {
             <BrowserRouter>
               <Routes>
                 <Route path="/login" element={<LoginPage />} />
+                <Route path="/reset-password" element={<ResetPasswordPage />} />
                 <Route
                   path="/*"
                   element={
