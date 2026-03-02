@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Box,
   Button,
@@ -40,6 +40,7 @@ export function AdminFxRatesPage() {
   const [loadingList, setLoadingList] = useState(false);
   const [result, setResult] = useState<FxSyncResult | null>(null);
   const [currencies, setCurrencies] = useState<Currency[]>([]);
+  const [currenciesLoaded, setCurrenciesLoaded] = useState(false);
   const [rows, setRows] = useState<FxRateRow[]>([]);
   const persisted = useMemo(() => safeParseJson<Record<string, any>>(STORAGE_KEY) || {}, []);
   const [sortKey, setSortKey] = useState<SortKey>(() => (typeof persisted.sortKey === "string" ? persisted.sortKey : "date"));
@@ -60,12 +61,18 @@ export function AdminFxRatesPage() {
   }, [t]);
 
   const canSync = useMemo(() => preset !== "all" && !!start && !!end, [preset, start, end]);
+  const rangeKey = useMemo(() => {
+    if (preset === "all") return "all";
+    return `${start.format("YYYY-MM-DD")}..${end.format("YYYY-MM-DD")}`;
+  }, [preset, start, end]);
+  const lastRangeKey = useRef<string>("");
 
   useEffect(() => {
     api
       .get("/currencies")
       .then((r) => setCurrencies((r.data || []) as Currency[]))
-      .catch(() => setCurrencies([]));
+      .catch(() => setCurrencies([]))
+      .finally(() => setCurrenciesLoaded(true));
   }, []);
 
   async function loadRates() {
@@ -82,10 +89,16 @@ export function AdminFxRatesPage() {
   }
 
   useEffect(() => {
-    setPage(0);
+    // Reset to page 1 only when the date range changes (not on initial mount restore).
+    if (!lastRangeKey.current) {
+      lastRangeKey.current = rangeKey;
+    } else if (lastRangeKey.current !== rangeKey) {
+      lastRangeKey.current = rangeKey;
+      setPage(0);
+    }
     loadRates().catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [preset, start, end]);
+  }, [rangeKey]);
 
   async function sync() {
     if (!canSync) {
@@ -118,10 +131,11 @@ export function AdminFxRatesPage() {
   }, [page, pageSize, sortDir, sortKey]);
 
   useEffect(() => {
+    if (!currenciesLoaded) return;
     if (sortKey === "date") return;
     const key = String(sortKey).toUpperCase();
     if (!currencyCodes.includes(key)) setSortKey("date");
-  }, [currencyCodes, sortKey]);
+  }, [currenciesLoaded, currencyCodes, sortKey]);
 
   const rateByDateCurrency = useMemo(() => {
     const map = new Map<string, Map<string, FxRateRow>>();

@@ -45,6 +45,7 @@ export function AdminCurrenciesPage() {
   const { t } = useTranslation();
   const [items, setItems] = useState<CurrencyRow[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadedOnce, setLoadedOnce] = useState(false);
   const persisted = useMemo(() => safeParseJson<Record<string, any>>(STORAGE_KEY) || {}, []);
   const [q, setQ] = useState<string>(() => (typeof persisted.q === "string" ? persisted.q : ""));
   const [sortKey, setSortKey] = useState<SortKey>(() => {
@@ -77,6 +78,7 @@ export function AdminCurrenciesPage() {
       setItems((res.data || []) as CurrencyRow[]);
     } finally {
       setLoading(false);
+      setLoadedOnce(true);
     }
   }
 
@@ -128,9 +130,10 @@ export function AdminCurrenciesPage() {
   }, [sortedItems, page, pageSize]);
 
   useEffect(() => {
+    if (!loadedOnce) return;
     if (page === 0) return;
     if (page * pageSize >= sortedItems.length) setPage(0);
-  }, [page, pageSize, sortedItems.length]);
+  }, [loadedOnce, page, pageSize, sortedItems.length]);
 
   function openCreate() {
     setEditing(null);
