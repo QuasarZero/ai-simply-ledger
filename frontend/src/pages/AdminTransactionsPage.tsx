@@ -454,6 +454,12 @@ export function AdminTransactionsPage() {
             e.preventDefault();
             applyFilters();
           }}
+          onKeyDownCapture={(e) => {
+            if (e.key !== "Enter") return;
+            // Only allow Ctrl/Cmd+Enter to apply filters.
+            e.preventDefault();
+            if (e.ctrlKey || e.metaKey) applyFilters();
+          }}
         >
           <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
             <DateRangePresets
