@@ -21,7 +21,7 @@ class TransactionFieldValueOut(BaseModel):
 
 class TransactionCreate(BaseModel):
     type: str = Field(pattern="^(income|expense)$")
-    amount: float = Field(gt=0)
+    amount: float = Field(ge=0)
     currency: str = Field(default="CNY", min_length=3, max_length=8)
     occurred_at: datetime
     note: str | None = None
@@ -32,7 +32,7 @@ class TransactionCreate(BaseModel):
 
 class TransactionUpdate(BaseModel):
     type: str | None = Field(default=None, pattern="^(income|expense)$")
-    amount: float | None = Field(default=None, gt=0)
+    amount: float | None = Field(default=None, ge=0)
     currency: str | None = Field(default=None, min_length=3, max_length=8)
     occurred_at: datetime | None = None
     note: str | None = None
