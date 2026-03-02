@@ -57,32 +57,32 @@
 - 查看自己的用户名
 - 修改邮箱/密码（需当前密码；新密码二次确认）
 
-默认初始账号：
+如果不手动更新 .env 配置文件，则默认初始账密为：
 
 - 用户名：`admin`
 - 密码：`123qaz`
 
 ## 快速开始（Docker）
 
-1) 复制并修改环境变量：
+1. 复制并修改环境变量：
 
-```bash
-cp .env.example .env
-```
+    ```bash
+    cp .env.example .env
+    ```
 
-2) 启动（修改代码后建议强制重建/重启，避免容器未替换或浏览器缓存导致仍看到旧版）：
+2. 启动（修改代码后建议强制重建/重启，避免容器未替换或浏览器缓存导致仍看到旧版）：
 
-```bash
-docker compose up -d --build --force-recreate
-```
+    ```bash
+    docker compose up -d --build --force-recreate
+    ```
 
-3) 初始化管理员（只需一次；已存在则跳过）：
+3. 初始化管理员（只需一次；已存在则跳过）：
 
-```bash
-docker compose run --rm backend python -m app.cli init-admin
-```
+    ```bash
+    docker compose run --rm backend python -m app.cli init-admin
+    ```
 
-4) 访问：
+4. 访问：
 
 - 前端：`http://localhost:8080`
 - 后端 API：`http://localhost:8000/api`（开发调试用；生产时前端通过 `/api` 反代）
@@ -121,4 +121,3 @@ docker compose run --rm backend python -m app.cli create-user --email a@b.com --
 - `backend/`：FastAPI + SQLAlchemy + Alembic
 - `frontend/`：React（Vite）+ TypeScript + MUI + i18n + Recharts
 - `docker-compose.yml`：一键部署（pgsql/backend/frontend）
-
