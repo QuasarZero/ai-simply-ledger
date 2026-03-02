@@ -715,11 +715,15 @@ export function TransactionsPage() {
             size="small"
             sx={{ width: 140 }}
           />
-          <Box sx={{ flexGrow: 1 }} />
-          <Button variant="outlined" type="submit">
-            {t("apply")}
-          </Button>
-          </Stack>
+        </Stack>
+        <Button 
+          variant="outlined" 
+          type="submit" 
+          fullWidth 
+          sx={{ mt: 2 }}
+        >
+          {t("apply")}
+        </Button>
         </Box>
       </Paper>
 
