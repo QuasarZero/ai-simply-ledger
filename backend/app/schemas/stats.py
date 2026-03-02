@@ -52,6 +52,7 @@ class TopTransaction(BaseModel):
     amount_base: float
     currency: str
     amount_raw: float
+    raw_currency: str
     note: str | None
     categories: list[NameId]
     tags: list[NameId]

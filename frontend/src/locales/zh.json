@@ -29,6 +29,7 @@
   "dark": "暗色",
   "light": "亮色",
   "language": "语言",
+  "targetCurrency": "目标货币",
   "startDate": "开始日期",
   "endDate": "结束日期",
   "income": "收入",

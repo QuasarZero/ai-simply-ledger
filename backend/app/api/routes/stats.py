@@ -220,8 +220,9 @@ def dashboard(
                     id=tx.id,
                     occurred_at=tx.occurred_at.isoformat(),
                     amount_base=float(amt_base),
-                    currency=tx.currency,
+                    currency=base_currency,
                     amount_raw=float(tx.amount),
+                    raw_currency=tx.currency,
                     note=tx.note,
                     categories=[NameId(id=c.id, name=c.name) for c in tx.categories]
                     or [NameId(id=0, name=cat_names[0])],
@@ -249,8 +250,9 @@ def dashboard(
                     id=tx.id,
                     occurred_at=tx.occurred_at.isoformat(),
                     amount_base=float(amt_base),
-                    currency=tx.currency,
+                    currency=base_currency,
                     amount_raw=float(tx.amount),
+                    raw_currency=tx.currency,
                     note=tx.note,
                     categories=[NameId(id=c.id, name=c.name) for c in tx.categories]
                     or [NameId(id=0, name=cat_names[0])],

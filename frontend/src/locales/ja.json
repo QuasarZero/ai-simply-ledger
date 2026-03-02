@@ -29,6 +29,7 @@
   "dark": "ダーク",
   "light": "ライト",
   "language": "言語",
+  "targetCurrency": "対象通貨",
   "startDate": "開始",
   "endDate": "終了",
   "income": "収入",
