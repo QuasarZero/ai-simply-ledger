@@ -31,6 +31,7 @@
   "light": "亮色",
   "language": "语言",
   "targetCurrency": "目标货币",
+  "date": "日期",
   "fxRates": "汇率",
   "syncFxRates": "同步汇率",
   "sync": "同步",

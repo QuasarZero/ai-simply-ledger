@@ -235,34 +235,17 @@ def sync_fx_rates(
     return {"days": days, "rows_upserted": rows_upserted, "currencies": len(cur_list)}
 
 
-def _nearest_rate(dates: list[date], rates: list[float], target: date) -> float | None:
+def _nearest_rate_on_or_before(dates: list[date], rates: list[float], target: date) -> float | None:
     """
-    Find nearest rate to target date.
-    If both sides are equally close, prefer the previous (earlier) date.
+    Find the latest rate on or before target date.
+    If there is no earlier/equal rate, return None (do NOT forward-fill from future rates).
     """
     if not dates:
         return None
-    pos = bisect.bisect_left(dates, target)
-    if pos < len(dates) and dates[pos] == target:
-        return rates[pos]
-
-    prev_idx = pos - 1 if pos > 0 else None
-    next_idx = pos if pos < len(dates) else None
-
-    if prev_idx is None and next_idx is None:
+    idx = bisect.bisect_right(dates, target) - 1
+    if idx < 0:
         return None
-    if prev_idx is None:
-        return rates[next_idx]  # type: ignore[index]
-    if next_idx is None:
-        return rates[prev_idx]
-
-    prev_day = dates[prev_idx]
-    next_day = dates[next_idx]
-    prev_diff = abs((target - prev_day).days)
-    next_diff = abs((next_day - target).days)
-    if next_diff < prev_diff:
-        return rates[next_idx]
-    return rates[prev_idx]
+    return rates[idx]
 
 
 def load_usd_rate_series(db, currencies: set[str], max_date: date) -> dict[str, tuple[list[date], list[float]]]:
@@ -308,8 +291,8 @@ def convert_amount_by_usd_series(
     to_series = series.get(to_currency)
     if not from_series or not to_series:
         return None
-    rate_from = _nearest_rate(from_series[0], from_series[1], day)
-    rate_to = _nearest_rate(to_series[0], to_series[1], day)
+    rate_from = _nearest_rate_on_or_before(from_series[0], from_series[1], day)
+    rate_to = _nearest_rate_on_or_before(to_series[0], to_series[1], day)
     if not rate_from or not rate_to:
         return None
     # 1 USD = rate_from * FROM ; 1 USD = rate_to * TO

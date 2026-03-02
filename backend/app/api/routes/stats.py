@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections import defaultdict
 from datetime import date, datetime, timedelta
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
 
 from app.config import get_settings
@@ -22,9 +22,7 @@ from app.schemas.stats import (
     Totals,
 )
 from app.services.fx import (
-    convert_amount,
     convert_amount_by_usd_series,
-    get_rates,
     load_usd_rate_series,
 )
 
@@ -69,7 +67,6 @@ def summary(
         query = query.filter(Transaction.user_id == current_user.id)
     txs = query.all()
 
-    rates_latest = get_rates(base_currency)
     if txs:
         max_day = max(tx.occurred_at.astimezone(settings.tzinfo).date() for tx in txs)
     else:
@@ -83,11 +80,15 @@ def summary(
     by_category = defaultdict(lambda: {"income": 0.0, "expense": 0.0})
 
     cats: dict[int, str] = {}
+    missing_fx: set[tuple[str, str]] = set()
+    missing_days: set[str] = set()
     for tx in txs:
         local_day = tx.occurred_at.astimezone(settings.tzinfo).date()
         amt = convert_amount_by_usd_series(float(tx.amount), tx.currency, base_currency, local_day, series)
         if amt is None:
-            amt = convert_amount(float(tx.amount), tx.currency, base_currency, rates_latest)
+            missing_fx.add((tx.currency.upper(), base_currency))
+            missing_days.add(local_day.isoformat())
+            continue
         day_key = local_day.isoformat()
         if tx.type == "income":
             totals_income += amt
@@ -103,6 +104,17 @@ def summary(
                 by_category[c.id]["income"] += amt
             else:
                 by_category[c.id]["expense"] += amt
+
+    if missing_fx:
+        pairs = ", ".join(sorted({f"{a}->{b}" for (a, b) in missing_fx}))
+        days_sorted = sorted(missing_days)
+        days_preview = ", ".join(days_sorted[:5])
+        more = max(0, len(days_sorted) - 5)
+        days_part = f"{days_preview}{'' if more == 0 else f' …(+{more} more)'}"
+        raise HTTPException(
+            status_code=400,
+            detail=f"Missing FX rates for {pairs} on dates: {days_part}. Please sync FX rates in Admin > FX rates.",
+        )
 
     days: list[ByDay] = []
     if all:
@@ -205,7 +217,6 @@ def dashboard(
         effective_user_id = int(current_user.id)
     txs = query.all()
 
-    rates_latest = get_rates(base_currency)
     if txs:
         max_day = max(tx.occurred_at.astimezone(settings.tzinfo).date() for tx in txs)
     else:
@@ -228,11 +239,15 @@ def dashboard(
     expense_tx_rows: list[TopTransaction] = []
     income_tx_rows: list[TopTransaction] = []
 
+    missing_fx: set[tuple[str, str]] = set()
+    missing_days: set[str] = set()
     for tx in txs:
         local_day = tx.occurred_at.astimezone(settings.tzinfo).date()
         amt_base = convert_amount_by_usd_series(float(tx.amount), tx.currency, base_currency, local_day, series)
         if amt_base is None:
-            amt_base = convert_amount(float(tx.amount), tx.currency, base_currency, rates_latest)
+            missing_fx.add((tx.currency.upper(), base_currency))
+            missing_days.add(local_day.isoformat())
+            continue
         day_key = local_day.isoformat()
 
         if tx.type == "income":
@@ -282,6 +297,17 @@ def dashboard(
                     tags=[NameId(id=t.id, name=t.name) for t in tx.tags] or [NameId(id=0, name=tag_names[0])],
                 )
             )
+
+    if missing_fx:
+        pairs = ", ".join(sorted({f"{a}->{b}" for (a, b) in missing_fx}))
+        days_sorted = sorted(missing_days)
+        days_preview = ", ".join(days_sorted[:5])
+        more = max(0, len(days_sorted) - 5)
+        days_part = f"{days_preview}{'' if more == 0 else f' …(+{more} more)'}"
+        raise HTTPException(
+            status_code=400,
+            detail=f"Missing FX rates for {pairs} on dates: {days_part}. Please sync FX rates in Admin > FX rates.",
+        )
 
     days: list[ByDay] = []
     if all:

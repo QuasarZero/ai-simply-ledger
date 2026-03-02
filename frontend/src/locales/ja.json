@@ -31,6 +31,7 @@
   "light": "ライト",
   "language": "言語",
   "targetCurrency": "対象通貨",
+  "date": "日付",
   "fxRates": "為替レート",
   "syncFxRates": "為替同期",
   "sync": "同期",

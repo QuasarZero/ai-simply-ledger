@@ -10,9 +10,9 @@ from app.audit import audit_log, diff
 from app.config import get_settings
 from app.db import get_db
 from app.deps import require_admin
-from app.models import Category, CategoryField, Currency, Tag, Transaction, TransactionFieldValue, User
+from app.models import Category, CategoryField, Currency, FxRate, Tag, Transaction, TransactionFieldValue, User
 from app.schemas.currencies import CurrencyCreate, CurrencyOut, CurrencyUpdate
-from app.schemas.fx_rates import FxSyncIn, FxSyncOut
+from app.schemas.fx_rates import FxRateRowOut, FxSyncIn, FxSyncOut
 from app.schemas.transactions import (
     BulkActionIn,
     TransactionListAdmin,
@@ -119,6 +119,31 @@ def admin_fx_sync(
         extra={"start": payload.start.isoformat(), "end": payload.end.isoformat(), **result},
     )
     return FxSyncOut(**result)
+
+
+@router.get("/fx/rates", response_model=list[FxRateRowOut])
+def admin_fx_list_rates(
+    start: date,
+    end: date,
+    db: Session = Depends(get_db),
+):
+    if start > end:
+        start, end = end, start
+    rows = (
+        db.query(FxRate)
+        .filter(FxRate.rate_date >= start, FxRate.rate_date <= end)
+        .order_by(FxRate.rate_date.desc(), FxRate.currency.asc())
+        .all()
+    )
+    return [
+        FxRateRowOut(
+            rate_date=r.rate_date,
+            currency=r.currency,
+            usd_rate=float(r.usd_rate),
+            source=r.source,
+        )
+        for r in rows
+    ]
 
 
 @router.get("/currencies", response_model=list[CurrencyOut])

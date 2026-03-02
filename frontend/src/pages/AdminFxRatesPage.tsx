@@ -1,5 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
-import { Box, Button, LinearProgress, Paper, Stack, Typography } from "@mui/material";
+import {
+  Box,
+  Button,
+  LinearProgress,
+  Paper,
+  Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  TableSortLabel,
+  Typography
+} from "@mui/material";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { useTranslation } from "react-i18next";
 
@@ -8,14 +22,27 @@ import { DateRangePresets } from "../components/DateRangePresets";
 import { YearMonthCalendarHeader } from "../components/YearMonthCalendarHeader";
 import { usePersistedDateRange } from "../hooks/usePersistedDateRange";
 import { emitToast } from "../components/toastBus";
+import dayjs from "../dayjs";
+import { PaginationBar } from "../components/PaginationBar";
 
 type FxSyncResult = { days: number; currencies: number; rows_upserted: number };
+type Currency = { code: string; name: string };
+type FxRateRow = { rate_date: string; currency: string; usd_rate: number; source: string };
+type SortDir = "asc" | "desc";
+type SortKey = "date" | string;
 
 export function AdminFxRatesPage() {
   const { t } = useTranslation();
   const { preset, setPreset, start, setStart, end, setEnd } = usePersistedDateRange("dateRange:fxSync", 30);
-  const [loading, setLoading] = useState(false);
+  const [loadingSync, setLoadingSync] = useState(false);
+  const [loadingList, setLoadingList] = useState(false);
   const [result, setResult] = useState<FxSyncResult | null>(null);
+  const [currencies, setCurrencies] = useState<Currency[]>([]);
+  const [rows, setRows] = useState<FxRateRow[]>([]);
+  const [sortKey, setSortKey] = useState<SortKey>("date");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [pageSize, setPageSize] = useState(50);
+  const [page, setPage] = useState(0);
 
   useEffect(() => {
     document.title = `${t("fxRates")} | ${t("appTitle")}`;
@@ -23,12 +50,38 @@ export function AdminFxRatesPage() {
 
   const canSync = useMemo(() => preset !== "all" && !!start && !!end, [preset, start, end]);
 
+  useEffect(() => {
+    api
+      .get("/currencies")
+      .then((r) => setCurrencies((r.data || []) as Currency[]))
+      .catch(() => setCurrencies([]));
+  }, []);
+
+  async function loadRates() {
+    if (preset === "all") return;
+    setLoadingList(true);
+    try {
+      const res = await api.get("/admin/fx/rates", {
+        params: { start: start.format("YYYY-MM-DD"), end: end.format("YYYY-MM-DD") }
+      });
+      setRows((res.data || []) as FxRateRow[]);
+    } finally {
+      setLoadingList(false);
+    }
+  }
+
+  useEffect(() => {
+    setPage(0);
+    loadRates().catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [preset, start, end]);
+
   async function sync() {
     if (!canSync) {
       emitToast({ severity: "error", message: t("dateRangeRequired") });
       return;
     }
-    setLoading(true);
+    setLoadingSync(true);
     try {
       const res = await api.post("/admin/fx/sync", {
         start: start.format("YYYY-MM-DD"),
@@ -36,19 +89,100 @@ export function AdminFxRatesPage() {
       });
       setResult(res.data as FxSyncResult);
       emitToast({ severity: "success", message: t("syncCompleted") });
+      await loadRates();
     } finally {
-      setLoading(false);
+      setLoadingSync(false);
     }
+  }
+
+  const currencyCodes = useMemo(() => {
+    const base = currencies.map((c) => c.code.toUpperCase());
+    const out = base.includes("USD") ? base : ["USD", ...base];
+    return out.length ? out : ["USD", "CNY", "EUR", "JPY", "HKD", "GBP"];
+  }, [currencies]);
+
+  const rateByDateCurrency = useMemo(() => {
+    const map = new Map<string, Map<string, FxRateRow>>();
+    for (const r of rows) {
+      const d = r.rate_date;
+      const c = (r.currency || "").toUpperCase();
+      if (!map.has(d)) map.set(d, new Map());
+      map.get(d)!.set(c, r);
+    }
+    return map;
+  }, [rows]);
+
+  const dateRows = useMemo(() => {
+    if (preset === "all") return [];
+    const s = start.startOf("day");
+    const e = end.startOf("day");
+    if (e.isBefore(s)) return [];
+    const days: string[] = [];
+    let cur = s;
+    while (cur.isBefore(e) || cur.isSame(e)) {
+      days.push(cur.format("YYYY-MM-DD"));
+      cur = cur.add(1, "day");
+      if (days.length > 5000) break; // safety guard
+    }
+    return days;
+  }, [preset, start, end]);
+
+  function valueAt(dateStr: string, code: string): number | null {
+    const c = code.toUpperCase();
+    if (c === "USD") return 1;
+    const m = rateByDateCurrency.get(dateStr);
+    const row = m?.get(c);
+    return row ? Number(row.usd_rate) : null;
+  }
+
+  function requestSort(next: SortKey) {
+    if (next === sortKey) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+      return;
+    }
+    setSortKey(next);
+    setSortDir(next === "date" ? "desc" : "asc");
+  }
+
+  const sortedDates = useMemo(() => {
+    const dir = sortDir === "asc" ? 1 : -1;
+    const base = [...dateRows];
+    if (sortKey === "date") {
+      base.sort((a, b) => a.localeCompare(b) * dir);
+      return base;
+    }
+    const code = String(sortKey).toUpperCase();
+    base.sort((a, b) => {
+      const va = valueAt(a, code);
+      const vb = valueAt(b, code);
+      if (va == null && vb == null) return a.localeCompare(b);
+      if (va == null) return 1;
+      if (vb == null) return -1;
+      const diff = va - vb;
+      return diff === 0 ? a.localeCompare(b) : diff * dir;
+    });
+    return base;
+  }, [dateRows, sortDir, sortKey, rateByDateCurrency]);
+
+  const pagedDates = useMemo(() => {
+    const startIdx = page * pageSize;
+    return sortedDates.slice(startIdx, startIdx + pageSize);
+  }, [page, pageSize, sortedDates]);
+
+  function formatRate(v: number | null) {
+    if (v == null) return "-";
+    const s = Number(v).toFixed(6);
+    return s.replace(/\.?0+$/, "");
   }
 
   return (
     <Stack spacing={2}>
       <Paper sx={{ p: 2 }}>
-        {loading ? <LinearProgress sx={{ mb: 2 }} /> : null}
+        {loadingSync ? <LinearProgress sx={{ mb: 2 }} /> : null}
         <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
           <Typography variant="h6">{t("fxRates")}</Typography>
           <Box sx={{ flexGrow: 1 }} />
-          <Button variant="contained" disabled={!canSync || loading} onClick={sync}>
+          <Button variant="contained" disabled={!canSync || loadingSync} onClick={sync}>
             {t("sync")}
           </Button>
         </Stack>
@@ -91,7 +225,63 @@ export function AdminFxRatesPage() {
           </Typography>
         ) : null}
       </Paper>
+
+      <Paper sx={{ p: 2 }}>
+        {loadingList ? <LinearProgress sx={{ mb: 2 }} /> : null}
+        <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 1 }}>
+          <Typography variant="subtitle1">
+            {t("fxRates")} ({sortedDates.length})
+          </Typography>
+          <Box sx={{ flexGrow: 1 }} />
+        </Stack>
+
+        <TableContainer sx={{ overflowX: "auto" }}>
+          <Table size="small" sx={{ tableLayout: "fixed", minWidth: Math.max(700, 120 + currencyCodes.length * 120) }}>
+            <TableHead>
+              <TableRow>
+                <TableCell sx={{ width: 120 }} sortDirection={sortKey === "date" ? sortDir : false}>
+                  <TableSortLabel
+                    active={sortKey === "date"}
+                    direction={sortKey === "date" ? sortDir : "desc"}
+                    onClick={() => requestSort("date")}
+                  >
+                    {t("date")}
+                  </TableSortLabel>
+                </TableCell>
+                {currencyCodes.map((c) => (
+                  <TableCell key={c} sx={{ width: 120 }} sortDirection={sortKey === c ? sortDir : false}>
+                    <TableSortLabel
+                      active={sortKey === c}
+                      direction={sortKey === c ? sortDir : "asc"}
+                      onClick={() => requestSort(c)}
+                    >
+                      {c}
+                    </TableSortLabel>
+                  </TableCell>
+                ))}
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {pagedDates.map((d) => (
+                <TableRow key={d}>
+                  <TableCell>{d}</TableCell>
+                  {currencyCodes.map((c) => (
+                    <TableCell key={c}>{formatRate(valueAt(d, c))}</TableCell>
+                  ))}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+
+        <PaginationBar
+          page={page}
+          pageSize={pageSize}
+          total={sortedDates.length}
+          onChangePage={setPage}
+          onChangePageSize={setPageSize}
+        />
+      </Paper>
     </Stack>
   );
 }
-

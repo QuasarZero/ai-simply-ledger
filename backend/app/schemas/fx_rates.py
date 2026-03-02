@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from datetime import date
-
 from pydantic import BaseModel, Field
+from datetime import date
+from datetime import date
 
 
 class FxSyncIn(BaseModel):
@@ -16,3 +16,9 @@ class FxSyncOut(BaseModel):
     currencies: int
     rows_upserted: int
 
+
+class FxRateRowOut(BaseModel):
+    rate_date: date
+    currency: str
+    usd_rate: float
+    source: str
