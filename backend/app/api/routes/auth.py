@@ -126,7 +126,7 @@ def forgot_password(
         base = (settings.frontend_base_url or "http://localhost:8080").rstrip("/")
         reset_url = f"{base}/reset-password?token={token}"
         try:
-            send_password_reset_email(to_email=user.email, reset_url=reset_url)
+            send_password_reset_email(to_email=user.email, reset_url=reset_url, lang=payload.lang)
         except Exception as exc:
             error_log(error=exc, request=request, extra={"op": "send_password_reset_email"})
         audit_log(action="auth.password_reset_request", actor=user, request=request)

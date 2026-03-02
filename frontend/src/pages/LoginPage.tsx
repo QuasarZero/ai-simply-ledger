@@ -21,7 +21,7 @@ import { useAuth } from "../auth/AuthContext";
 import { emitToast } from "../components/toastBus";
 
 export function LoginPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { login, token } = useAuth();
   const navigate = useNavigate();
   const [username, setUsername] = useState("admin");
@@ -62,7 +62,7 @@ export function LoginPage() {
     setForgotError(null);
     setForgotLoading(true);
     try {
-      await api.post("/auth/forgot-password", { email }, { meta: { silentToast: true } });
+      await api.post("/auth/forgot-password", { email, lang: i18n.language }, { meta: { silentToast: true } });
       emitToast({ severity: "success", message: t("resetEmailSent") });
       setOpenForgot(false);
       setForgotEmail("");
@@ -73,13 +73,37 @@ export function LoginPage() {
     }
   }
 
+  function onForgotKeyDownCapture(e: any) {
+    const isEnter = e?.key === "Enter" || e?.code === "Enter" || e?.code === "NumpadEnter";
+    if (!isEnter) return;
+    if (!(e.ctrlKey || e.metaKey)) return;
+    if (forgotLoading) return;
+    if (!forgotEmail.trim()) return;
+    e.preventDefault();
+    e.stopPropagation();
+    submitForgot();
+  }
+
   return (
     <Container maxWidth="sm" sx={{ mt: 10 }}>
       <Paper sx={{ p: 4 }}>
         <Stack spacing={2}>
           <Typography variant="h5">{t("loginTitle")}</Typography>
           {error ? <Alert severity="error">{String(error)}</Alert> : null}
-          <Box component="form" onSubmit={onSubmit}>
+          <Box
+            component="form"
+            onSubmit={onSubmit}
+            onKeyDown={(e) => {
+              if (e.key !== "Enter") return;
+              if (e.ctrlKey || e.metaKey) {
+                e.preventDefault();
+                onSubmit(e as any);
+                return;
+              }
+              // Only allow Ctrl+Enter to submit on the login page.
+              e.preventDefault();
+            }}
+          >
             <Stack spacing={2}>
               <TextField
                 label={t("usernameOrEmail")}
@@ -107,10 +131,16 @@ export function LoginPage() {
               </Button>
             </Stack>
           </Box>
-        </Stack>
+       </Stack>
       </Paper>
 
-      <Dialog open={openForgot} onClose={() => (forgotLoading ? null : setOpenForgot(false))} maxWidth="xs" fullWidth>
+      <Dialog
+        open={openForgot}
+        onClose={() => (forgotLoading ? null : setOpenForgot(false))}
+        onKeyDownCapture={onForgotKeyDownCapture}
+        maxWidth="xs"
+        fullWidth
+      >
         <DialogTitle>{t("forgotPasswordTitle")}</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>

@@ -19,6 +19,7 @@ class UserMe(BaseModel):
 
 class ForgotPasswordIn(BaseModel):
     email: str = Field(min_length=3, max_length=255)
+    lang: str | None = Field(default=None, max_length=16)
 
 
 class ResetPasswordIn(BaseModel):

@@ -70,7 +70,23 @@ export function ResetPasswordPage() {
           </Typography>
           {!token ? <Alert severity="error">{t("tokenMissing")}</Alert> : null}
           {error ? <Alert severity="error">{String(error)}</Alert> : null}
-          <Box component="form" onSubmit={submit}>
+          <Box
+            component="form"
+            onSubmit={submit}
+            onKeyDown={(e) => {
+              if (e.key !== "Enter") return;
+
+              // Only allow Ctrl+Enter / Cmd+Enter to submit on reset-password page.
+              if (e.ctrlKey || e.metaKey) {
+                if (!canSubmit || loading) return;
+                e.preventDefault();
+                submit(e as any);
+                return;
+              }
+
+              e.preventDefault();
+            }}
+          >
             <Stack spacing={2}>
               <TextField
                 label={t("newPassword")}
@@ -105,4 +121,3 @@ export function ResetPasswordPage() {
     </Container>
   );
 }
-
