@@ -1,5 +1,5 @@
 services:
-  db:
+  database:
     image: postgres:16
     restart: unless-stopped
     environment:
@@ -49,7 +49,7 @@ services:
     volumes:
       - ./logs:/app/logs
     depends_on:
-      - db
+      - database
     ports:
       - "8000:8000"
 
