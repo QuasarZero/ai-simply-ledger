@@ -22,7 +22,8 @@ import {
   TableRow,
   TextField,
   Typography,
-  Box
+  Box,
+  TableContainer
 } from "@mui/material";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
@@ -300,102 +301,104 @@ export function CategoriesPage() {
             sx={{ width: 260 }}
           />
         </Stack>
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell padding="checkbox">
-                <Checkbox
-                  checked={pagedItems.length > 0 && pagedItems.every((x) => selectedIds.has(x.id))}
-                  indeterminate={
-                    selectedIds.size > 0 &&
-                    pagedItems.some((x) => selectedIds.has(x.id)) &&
-                    !pagedItems.every((x) => selectedIds.has(x.id))
-                  }
-                  onChange={(e) => {
-                    if (e.target.checked) {
-                      setSelectedIds((prev) => new Set([...Array.from(prev), ...pagedItems.map((x) => x.id)]));
-                    } else {
-                      setSelectedIds((prev) => {
-                        const next = new Set(prev);
-                        pagedItems.forEach((x) => next.delete(x.id));
-                        return next;
-                      });
-                    }
-                  }}
-                />
-              </TableCell>
-              <TableCell sortDirection={sortKey === "name" ? sortDir : false}>
-                <TableSortLabel
-                  active={sortKey === "name"}
-                  direction={sortKey === "name" ? sortDir : "asc"}
-                  onClick={() => requestSort("name")}
-                >
-                  {t("categories")}
-                </TableSortLabel>
-              </TableCell>
-              <TableCell sortDirection={sortKey === "description" ? sortDir : false}>
-                <TableSortLabel
-                  active={sortKey === "description"}
-                  direction={sortKey === "description" ? sortDir : "asc"}
-                  onClick={() => requestSort("description")}
-                >
-                  {t("note")}
-                </TableSortLabel>
-              </TableCell>
-              <TableCell sx={{ width: 140 }} sortDirection={sortKey === "fields_count" ? sortDir : false}>
-                <TableSortLabel
-                  active={sortKey === "fields_count"}
-                  direction={sortKey === "fields_count" ? sortDir : "asc"}
-                  onClick={() => requestSort("fields_count")}
-                >
-                  {t("fieldsCount")}
-                </TableSortLabel>
-              </TableCell>
-              <TableCell />
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {pagedItems.map((c) => (
-              <TableRow key={c.id}>
+        <TableContainer sx={{ overflowX: "auto" }}>
+          <Table size="small" sx={{ tableLayout: "fixed" }}>
+            <TableHead>
+              <TableRow>
                 <TableCell padding="checkbox">
                   <Checkbox
-                    checked={selectedIds.has(c.id)}
+                    checked={pagedItems.length > 0 && pagedItems.every((x) => selectedIds.has(x.id))}
+                    indeterminate={
+                      selectedIds.size > 0 &&
+                      pagedItems.some((x) => selectedIds.has(x.id)) &&
+                      !pagedItems.every((x) => selectedIds.has(x.id))
+                    }
                     onChange={(e) => {
-                      setSelectedIds((prev) => {
-                        const next = new Set(prev);
-                        if (e.target.checked) next.add(c.id);
-                        else next.delete(c.id);
-                        return next;
-                      });
+                      if (e.target.checked) {
+                        setSelectedIds((prev) => new Set([...Array.from(prev), ...pagedItems.map((x) => x.id)]));
+                      } else {
+                        setSelectedIds((prev) => {
+                          const next = new Set(prev);
+                          pagedItems.forEach((x) => next.delete(x.id));
+                          return next;
+                        });
+                      }
                     }}
                   />
                 </TableCell>
-                <TableCell>
-                  <Button
-                    size="small"
-                    onClick={(e) => {
-                      const base =
-                        me?.is_admin && !e.altKey ? "/admin/transactions" : "/transactions";
-                      navigate(`${base}?categoryId=${c.id}`);
-                    }}
+                <TableCell sx={{ width: 200 }} sortDirection={sortKey === "name" ? sortDir : false}>
+                  <TableSortLabel
+                    active={sortKey === "name"}
+                    direction={sortKey === "name" ? sortDir : "asc"}
+                    onClick={() => requestSort("name")}
                   >
-                    {c.name}
-                  </Button>
+                    {t("categories")}
+                  </TableSortLabel>
                 </TableCell>
-                <TableCell>{c.description || ""}</TableCell>
-                <TableCell>{typeof c.fields_count === "number" ? c.fields_count : 0}</TableCell>
-                <TableCell align="left">
-                  <ButtonGroup variant="outlined" size="small">
-                    <Button onClick={() => openEdit(c)}>{t("edit")}</Button>
-                    <Button onClick={(e) => openActionsMenu(e, c)} sx={{ px: 0.5, minWidth: 36 }}>
-                      <ArrowDropDownIcon fontSize="small" />
-                    </Button>
-                  </ButtonGroup>
+                <TableCell sx={{ width: 500 }} sortDirection={sortKey === "description" ? sortDir : false}>
+                  <TableSortLabel
+                    active={sortKey === "description"}
+                    direction={sortKey === "description" ? sortDir : "asc"}
+                    onClick={() => requestSort("description")}
+                  >
+                    {t("note")}
+                  </TableSortLabel>
                 </TableCell>
+                <TableCell sx={{ width: 120 }} sortDirection={sortKey === "fields_count" ? sortDir : false}>
+                  <TableSortLabel
+                    active={sortKey === "fields_count"}
+                    direction={sortKey === "fields_count" ? sortDir : "asc"}
+                    onClick={() => requestSort("fields_count")}
+                  >
+                    {t("fieldsCount")}
+                  </TableSortLabel>
+                </TableCell>
+                <TableCell sx={{width: 120}}>{t("actions")}</TableCell>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHead>
+            <TableBody>
+              {pagedItems.map((c) => (
+                <TableRow key={c.id}>
+                  <TableCell padding="checkbox">
+                    <Checkbox
+                      checked={selectedIds.has(c.id)}
+                      onChange={(e) => {
+                        setSelectedIds((prev) => {
+                          const next = new Set(prev);
+                          if (e.target.checked) next.add(c.id);
+                          else next.delete(c.id);
+                          return next;
+                        });
+                      }}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Button
+                      size="small"
+                      onClick={(e) => {
+                        const base =
+                          me?.is_admin && !e.altKey ? "/admin/transactions" : "/transactions";
+                        navigate(`${base}?categoryId=${c.id}`);
+                      }}
+                    >
+                      {c.name}
+                    </Button>
+                  </TableCell>
+                  <TableCell>{c.description || ""}</TableCell>
+                  <TableCell>{typeof c.fields_count === "number" ? c.fields_count : 0}</TableCell>
+                  <TableCell align="left">
+                    <ButtonGroup variant="outlined" size="small">
+                      <Button onClick={() => openEdit(c)}>{t("edit")}</Button>
+                      <Button onClick={(e) => openActionsMenu(e, c)} sx={{ px: 0.5, minWidth: 36 }}>
+                        <ArrowDropDownIcon fontSize="small" />
+                      </Button>
+                    </ButtonGroup>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
         <PaginationBar
           page={page}
           pageSize={pageSize}

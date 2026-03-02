@@ -335,7 +335,7 @@ export function UsersPage() {
                     {t("email")}
                   </TableSortLabel>
                 </TableCell>
-                <TableCell sx={{ width: 110 }} sortDirection={sortKey === "username" ? sortDir : false}>
+                <TableCell sx={{ width: 150 }} sortDirection={sortKey === "username" ? sortDir : false}>
                   <TableSortLabel
                     active={sortKey === "username"}
                     direction={sortKey === "username" ? sortDir : "asc"}
@@ -344,7 +344,7 @@ export function UsersPage() {
                     {t("username")}
                   </TableSortLabel>
                 </TableCell>
-                <TableCell sx={{ width: 80 }} sortDirection={sortKey === "is_admin" ? sortDir : false}>
+                <TableCell sx={{ width: 120 }} sortDirection={sortKey === "is_admin" ? sortDir : false}>
                   <TableSortLabel
                     active={sortKey === "is_admin"}
                     direction={sortKey === "is_admin" ? sortDir : "asc"}
@@ -353,7 +353,7 @@ export function UsersPage() {
                     {t("admin")}
                   </TableSortLabel>
                 </TableCell>
-                <TableCell sx={{ width: 70 }} sortDirection={sortKey === "is_active" ? sortDir : false}>
+                <TableCell sx={{ width: 90 }} sortDirection={sortKey === "is_active" ? sortDir : false}>
                   <TableSortLabel
                     active={sortKey === "is_active"}
                     direction={sortKey === "is_active" ? sortDir : "asc"}

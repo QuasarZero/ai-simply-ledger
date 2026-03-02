@@ -674,7 +674,7 @@ export function AdminTransactionsPage() {
                     {t("occurredAt")}
                   </TableSortLabel>
                 </TableCell>
-                <TableCell sx={{ width: 80 }} sortDirection={sortKey === "type" ? sortDir : false}>
+                <TableCell sx={{ width: 90 }} sortDirection={sortKey === "type" ? sortDir : false}>
                   <TableSortLabel
                     active={sortKey === "type"}
                     direction={sortKey === "type" ? sortDir : "asc"}
@@ -694,7 +694,7 @@ export function AdminTransactionsPage() {
                     </TableSortLabel>
                   </Box>
                 </TableCell>
-                <TableCell sx={{ width: 80 }} sortDirection={sortKey === "currency" ? sortDir : false}>
+                <TableCell sx={{ width: 90 }} sortDirection={sortKey === "currency" ? sortDir : false}>
                   <TableSortLabel
                     active={sortKey === "currency"}
                     direction={sortKey === "currency" ? sortDir : "asc"}
@@ -750,7 +750,7 @@ export function AdminTransactionsPage() {
                     {t("note")}
                   </TableSortLabel>
                 </TableCell>
-                <TableCell sx={{width: 130}}>{t("actions")}</TableCell>
+                <TableCell sx={{width: 140}}>{t("actions")}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
