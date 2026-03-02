@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import {
   Alert,
   Box,
@@ -8,19 +8,46 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  FormControl,
+  IconButton,
+  MenuItem,
   Paper,
+  Select,
   Stack,
   TextField,
   Typography
 } from "@mui/material";
+import DarkModeIcon from "@mui/icons-material/DarkMode";
+import LightModeIcon from "@mui/icons-material/LightMode";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { emitToast } from "../components/toastBus";
+import dayjs from "../dayjs";
 
-export function LoginPage() {
+const LANG_OPTIONS = [
+  { value: "zh", label: "中文" },
+  { value: "en", label: "English" },
+  { value: "ja", label: "日本語" }
+] as const;
+type LangValue = (typeof LANG_OPTIONS)[number]["value"];
+
+function normalizeLang(value: string | undefined | null): LangValue {
+  const v = (value || "zh").toLowerCase();
+  if (v.startsWith("zh")) return "zh";
+  if (v.startsWith("ja")) return "ja";
+  return "en";
+}
+
+export function LoginPage({
+  mode,
+  toggleTheme
+}: {
+  mode: "light" | "dark";
+  toggleTheme: () => void;
+}) {
   const { t, i18n } = useTranslation();
   const { login, token } = useAuth();
   const navigate = useNavigate();
@@ -42,7 +69,7 @@ export function LoginPage() {
     if (token) navigate("/", { replace: true });
   }, [token, navigate]);
 
-  async function onSubmit(e: React.FormEvent) {
+  async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
     setLoading(true);
@@ -73,6 +100,12 @@ export function LoginPage() {
     }
   }
 
+  function setLang(next: LangValue) {
+    i18n.changeLanguage(next);
+    localStorage.setItem("lang", next);
+    dayjs.locale(next === "zh" ? "zh-cn" : next);
+  }
+
   function onForgotKeyDownCapture(e: any) {
     const isEnter = e?.key === "Enter" || e?.code === "Enter" || e?.code === "NumpadEnter";
     if (!isEnter) return;
@@ -86,6 +119,25 @@ export function LoginPage() {
 
   return (
     <Container maxWidth="sm" sx={{ mt: 10 }}>
+      <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1, mb: 1 }}>
+        <FormControl size="small" sx={{ minWidth: 140 }}>
+          <Select
+            value={normalizeLang(i18n.language)}
+            onChange={(e) => setLang(e.target.value as LangValue)}
+            renderValue={(value) => LANG_OPTIONS.find((x) => x.value === value)?.label || String(value)}
+            inputProps={{ "aria-label": t("language") }}
+          >
+            {LANG_OPTIONS.map((o) => (
+              <MenuItem key={o.value} value={o.value}>
+                {o.label}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+        <IconButton onClick={toggleTheme} aria-label={t("theme")}>
+          {mode === "light" ? <DarkModeIcon /> : <LightModeIcon />}
+        </IconButton>
+      </Box>
       <Paper sx={{ p: 4 }}>
         <Stack spacing={2}>
           <Typography variant="h5">{t("loginTitle")}</Typography>

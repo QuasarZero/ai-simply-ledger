@@ -48,7 +48,7 @@ export default function App() {
           <ToastProvider>
             <BrowserRouter>
               <Routes>
-                <Route path="/login" element={<LoginPage />} />
+                <Route path="/login" element={<LoginPage mode={mode} toggleTheme={toggleTheme} />} />
                 <Route path="/reset-password" element={<ResetPasswordPage />} />
                 <Route
                   path="/*"
