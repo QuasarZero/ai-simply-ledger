@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+from datetime import date
 
 from sqlalchemy.orm import Session
 
@@ -9,6 +10,7 @@ from app.config import get_settings
 from app.db import SessionLocal
 from app.models import User
 from app.security import hash_password
+from app.services.fx import sync_fx_rates
 
 
 def _db() -> Session:
@@ -77,6 +79,28 @@ def cmd_create_user(args: argparse.Namespace) -> int:
         db.close()
 
 
+def cmd_sync_fx(args: argparse.Namespace) -> int:
+    settings = get_settings()
+    db = _db()
+    try:
+        start = date.fromisoformat(args.start)
+        end = date.fromisoformat(args.end)
+        currencies = None
+        if args.currencies:
+            currencies = [x.strip().upper() for x in args.currencies.split(",") if x.strip()]
+        result = sync_fx_rates(
+            db,
+            start=start,
+            end=end,
+            currencies=currencies,
+            source=settings.fx_source,
+        )
+        print(result)
+        return 0
+    finally:
+        db.close()
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="app.cli")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -95,6 +119,16 @@ def build_parser() -> argparse.ArgumentParser:
     s3.add_argument("--password", required=True)
     s3.add_argument("--admin", default="false", choices=["true", "false"])
     s3.set_defaults(func=cmd_create_user)
+
+    s4 = sub.add_parser("sync-fx", help="Sync daily FX rates into database (USD base)")
+    s4.add_argument("--start", required=True, help="YYYY-MM-DD")
+    s4.add_argument("--end", required=True, help="YYYY-MM-DD")
+    s4.add_argument(
+        "--currencies",
+        default="",
+        help="Comma separated currency list (default: FX_CURRENCIES)",
+    )
+    s4.set_defaults(func=cmd_sync_fx)
     return p
 
 

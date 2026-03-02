@@ -60,7 +60,7 @@ export type DashboardData = {
   top_tags_count: { id: number; name: string; value: number }[];
 };
 
-const dashboardCurrencies = ["CNY", "USD", "EUR", "JPY", "HKD", "GBP"] as const;
+type Currency = { code: string; name: string };
 
 const OverviewTab = React.lazy(() => import("./dashboard/OverviewTab"));
 const CategoriesTab = React.lazy(() => import("./dashboard/CategoriesTab"));
@@ -77,6 +77,7 @@ export function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(false);
   const [tab, setTab] = useState(0);
+  const [currencies, setCurrencies] = useState<Currency[]>([]);
   const { preset, setPreset, start, setStart, end, setEnd } = usePersistedDateRange(
     "dateRange:dashboard",
     30
@@ -96,6 +97,19 @@ export function DashboardPage() {
     const v = (raw || "CNY").toUpperCase();
     return v;
   });
+
+  useEffect(() => {
+    api
+      .get("/currencies")
+      .then((r) => setCurrencies((r.data || []) as Currency[]))
+      .catch(() => setCurrencies([]));
+  }, []);
+
+  useEffect(() => {
+    if (!currencies.length) return;
+    const codes = currencies.map((c) => c.code);
+    if (!codes.includes(baseCurrency)) setBaseCurrency(codes[0] || "CNY");
+  }, [baseCurrency, currencies]);
 
   useEffect(() => {
     if (!isAdmin) return;
@@ -219,11 +233,13 @@ export function DashboardPage() {
             size="small"
             sx={{ width: 180 }}
           >
-            {dashboardCurrencies.map((c) => (
-              <MenuItem key={c} value={c}>
-                {c}
-              </MenuItem>
-            ))}
+            {(currencies.length ? currencies.map((c) => c.code) : ["CNY", "USD", "EUR", "JPY", "HKD", "GBP"]).map(
+              (c) => (
+                <MenuItem key={c} value={c}>
+                  {c}
+                </MenuItem>
+              )
+            )}
           </TextField>
           <Box sx={{ flexGrow: 1 }} />
           {isAdmin ? (

@@ -26,6 +26,8 @@ class Settings(BaseSettings):
 
     fx_base_url: str = "https://api.frankfurter.app"
     fx_cache_ttl_seconds: int = 60 * 60 * 6
+    fx_source: str = "frankfurter"
+    fx_currencies: str = "USD,CNY,EUR,JPY,HKD,GBP"
 
     frontend_base_url: str = "http://localhost:8080"
 
@@ -57,6 +59,10 @@ class Settings(BaseSettings):
     @property
     def tzinfo(self) -> ZoneInfo:
         return ZoneInfo(self.timezone)
+
+    @property
+    def fx_currency_list(self) -> list[str]:
+        return sorted({c.strip().upper() for c in self.fx_currencies.split(",") if c.strip()})
 
 
 @lru_cache

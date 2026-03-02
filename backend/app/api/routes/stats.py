@@ -21,7 +21,12 @@ from app.schemas.stats import (
     TopTransaction,
     Totals,
 )
-from app.services.fx import convert_amount, get_rates
+from app.services.fx import (
+    convert_amount,
+    convert_amount_by_usd_series,
+    get_rates,
+    load_usd_rate_series,
+)
 
 router = APIRouter(prefix="/stats")
 settings = get_settings()
@@ -64,7 +69,13 @@ def summary(
         query = query.filter(Transaction.user_id == current_user.id)
     txs = query.all()
 
-    rates = get_rates(base_currency)
+    rates_latest = get_rates(base_currency)
+    if txs:
+        max_day = max(tx.occurred_at.astimezone(settings.tzinfo).date() for tx in txs)
+    else:
+        max_day = end if (end and not all) else datetime.now(settings.tzinfo).date()
+    needed = {base_currency, "USD", *(tx.currency for tx in txs)}
+    series = load_usd_rate_series(db, needed, max_day)
 
     totals_income = 0.0
     totals_expense = 0.0
@@ -73,8 +84,11 @@ def summary(
 
     cats: dict[int, str] = {}
     for tx in txs:
-        amt = convert_amount(float(tx.amount), tx.currency, base_currency, rates)
-        day_key = _to_date_str(tx.occurred_at)
+        local_day = tx.occurred_at.astimezone(settings.tzinfo).date()
+        amt = convert_amount_by_usd_series(float(tx.amount), tx.currency, base_currency, local_day, series)
+        if amt is None:
+            amt = convert_amount(float(tx.amount), tx.currency, base_currency, rates_latest)
+        day_key = local_day.isoformat()
         if tx.type == "income":
             totals_income += amt
             by_day[day_key]["income"] += amt
@@ -191,7 +205,13 @@ def dashboard(
         effective_user_id = int(current_user.id)
     txs = query.all()
 
-    rates = get_rates(base_currency)
+    rates_latest = get_rates(base_currency)
+    if txs:
+        max_day = max(tx.occurred_at.astimezone(settings.tzinfo).date() for tx in txs)
+    else:
+        max_day = end if (end and not all) else datetime.now(settings.tzinfo).date()
+    needed = {base_currency, "USD", *(tx.currency for tx in txs)}
+    series = load_usd_rate_series(db, needed, max_day)
 
     totals_income = 0.0
     totals_expense = 0.0
@@ -209,8 +229,11 @@ def dashboard(
     income_tx_rows: list[TopTransaction] = []
 
     for tx in txs:
-        amt_base = convert_amount(float(tx.amount), tx.currency, base_currency, rates)
-        day_key = _to_date_str(tx.occurred_at)
+        local_day = tx.occurred_at.astimezone(settings.tzinfo).date()
+        amt_base = convert_amount_by_usd_series(float(tx.amount), tx.currency, base_currency, local_day, series)
+        if amt_base is None:
+            amt_base = convert_amount(float(tx.amount), tx.currency, base_currency, rates_latest)
+        day_key = local_day.isoformat()
 
         if tx.type == "income":
             totals_income += amt_base

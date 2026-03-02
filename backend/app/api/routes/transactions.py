@@ -10,7 +10,7 @@ from app.audit import audit_log, diff
 from app.config import get_settings
 from app.db import get_db
 from app.deps import get_current_user
-from app.models import Category, CategoryField, Tag, Transaction, TransactionFieldValue, User
+from app.models import Category, CategoryField, Currency, Tag, Transaction, TransactionFieldValue, User
 from app.schemas.transactions import (
     BulkActionIn,
     TransactionCreate,
@@ -110,6 +110,20 @@ def _validate_field_ids_allowed(
     bad = [fid for fid in field_values.keys() if int(fid) not in allowed_ids]
     if bad:
         raise HTTPException(status_code=400, detail=f"Invalid field ids for selected categories: {sorted(bad)}")
+
+
+def _require_enabled_currency(db: Session, code: str) -> str:
+    code_u = (code or "").strip().upper()
+    if not code_u:
+        raise HTTPException(status_code=400, detail="Currency required")
+    ok = (
+        db.query(Currency)
+        .filter(Currency.code == code_u, Currency.is_enabled.is_(True))
+        .first()
+    )
+    if not ok:
+        raise HTTPException(status_code=400, detail="Unsupported currency")
+    return code_u
 
 
 @router.get("", response_model=TransactionList)
@@ -240,7 +254,7 @@ def create_transaction(
         user_id=current_user.id,
         type=payload.type,
         amount=payload.amount,
-        currency=payload.currency.upper(),
+        currency=_require_enabled_currency(db, payload.currency),
         occurred_at=payload.occurred_at,
         note=payload.note,
     )
@@ -344,7 +358,7 @@ def update_transaction(
     if payload.amount is not None:
         tx.amount = payload.amount
     if payload.currency:
-        tx.currency = payload.currency.upper()
+        tx.currency = _require_enabled_currency(db, payload.currency)
     if payload.occurred_at:
         tx.occurred_at = payload.occurred_at
     if payload.note is not None:

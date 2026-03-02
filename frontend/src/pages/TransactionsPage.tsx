@@ -47,6 +47,7 @@ import { PaginationBar } from "../components/PaginationBar";
 type Category = { id: number; name: string; description?: string | null };
 type Tag = { id: number; name: string; used_count?: number };
 type CategoryField = { id: number; category_id: number; name: string; is_required: boolean; created_at?: string };
+type Currency = { code: string; name: string };
 
 type Tx = {
   id: number;
@@ -78,7 +79,6 @@ function stableSort<T>(arr: T[], cmp: (a: T, b: T) => number): T[] {
     .map((x) => x.v);
 }
 
-const currencies = ["CNY", "USD", "EUR", "JPY", "HKD", "GBP"];
 const tagFilter = createFilterOptions<TagOption>();
 const STORAGE_KEY = "pageState:transactions";
 
@@ -98,6 +98,7 @@ export function TransactionsPage() {
   const [total, setTotal] = useState<number>(0);
   const [categories, setCategories] = useState<Category[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
+  const [currencies, setCurrencies] = useState<Currency[]>([]);
   const [loadingMeta, setLoadingMeta] = useState(false);
   const [loadingList, setLoadingList] = useState(false);
   const persisted = useMemo(() => safeParseJson<Record<string, any>>(STORAGE_KEY) || {}, []);
@@ -245,12 +246,24 @@ export function TransactionsPage() {
   const [fieldValueOptions, setFieldValueOptions] = useState<Record<number, string[]>>({});
   const fieldValueTimers = React.useRef<Record<number, any>>({});
 
+  const currencyCodes = useMemo(() => {
+    const base = (currencies || []).map((c) => c.code);
+    const current = (currency || "").toUpperCase();
+    const out = current && !base.includes(current) ? [...base, current] : base;
+    return out.length ? out : ["CNY", "USD", "EUR", "JPY", "HKD", "GBP"];
+  }, [currencies, currency]);
+
   async function loadMeta() {
     setLoadingMeta(true);
     try {
-      const [cRes, tRes] = await Promise.all([api.get("/categories"), api.get("/tags")]);
+      const [cRes, tRes, curRes] = await Promise.all([
+        api.get("/categories"),
+        api.get("/tags"),
+        api.get("/currencies")
+      ]);
       setCategories(cRes.data as Category[]);
       setTags(tRes.data as Tag[]);
+      setCurrencies((curRes.data || []) as Currency[]);
     } finally {
       setLoadingMeta(false);
     }
@@ -1054,7 +1067,7 @@ export function TransactionsPage() {
               value={currency}
               onChange={(e) => setCurrency(e.target.value)}
             >
-              {currencies.map((c) => (
+              {currencyCodes.map((c) => (
                 <MenuItem key={c} value={c}>
                   {c}
                 </MenuItem>

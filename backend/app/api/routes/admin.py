@@ -10,7 +10,9 @@ from app.audit import audit_log, diff
 from app.config import get_settings
 from app.db import get_db
 from app.deps import require_admin
-from app.models import Category, CategoryField, Tag, Transaction, TransactionFieldValue, User
+from app.models import Category, CategoryField, Currency, Tag, Transaction, TransactionFieldValue, User
+from app.schemas.currencies import CurrencyCreate, CurrencyOut, CurrencyUpdate
+from app.schemas.fx_rates import FxSyncIn, FxSyncOut
 from app.schemas.transactions import (
     BulkActionIn,
     TransactionListAdmin,
@@ -19,6 +21,7 @@ from app.schemas.transactions import (
 )
 from app.schemas.users import ResetPasswordIn, UserCreate, UserMiniOut, UserOut, UserUpdate
 from app.security import hash_password
+from app.services.fx import ensure_currency_catalog, sync_fx_rates
 
 router = APIRouter(dependencies=[Depends(require_admin)])
 settings = get_settings()
@@ -76,6 +79,112 @@ def _coerce_field_values(values) -> dict[int, str]:
             continue
         out[field_id] = s
     return out
+
+
+def _require_enabled_currency(db: Session, code: str) -> str:
+    code_u = (code or "").strip().upper()
+    if not code_u:
+        raise HTTPException(status_code=400, detail="Currency required")
+    ok = (
+        db.query(Currency)
+        .filter(Currency.code == code_u, Currency.is_enabled.is_(True))
+        .first()
+    )
+    if not ok:
+        raise HTTPException(status_code=400, detail="Unsupported currency")
+    return code_u
+
+
+@router.post("/fx/sync", response_model=FxSyncOut)
+def admin_fx_sync(
+    payload: FxSyncIn,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    result = sync_fx_rates(
+        db,
+        start=payload.start,
+        end=payload.end,
+        currencies=payload.currencies,
+        source=settings.fx_source,
+    )
+    audit_log(
+        action="admin.fx_sync",
+        actor=current_user,
+        request=request,
+        entity="fx_rates",
+        entity_id=None,
+        changes=None,
+        extra={"start": payload.start.isoformat(), "end": payload.end.isoformat(), **result},
+    )
+    return FxSyncOut(**result)
+
+
+@router.get("/currencies", response_model=list[CurrencyOut])
+def admin_list_currencies(db: Session = Depends(get_db)):
+    ensure_currency_catalog(db)
+    rows = db.query(Currency).order_by(Currency.code.asc()).all()
+    return [CurrencyOut(code=r.code, name=r.name, is_enabled=bool(r.is_enabled)) for r in rows]
+
+
+@router.post("/currencies", response_model=CurrencyOut)
+def admin_create_currency(
+    payload: CurrencyCreate,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    code = payload.code.strip().upper()
+    if db.query(Currency).filter(Currency.code == code).first():
+        raise HTTPException(status_code=400, detail="Currency already exists")
+    row = Currency(code=code, name=payload.name.strip(), is_enabled=bool(payload.is_enabled))
+    db.add(row)
+    db.commit()
+    audit_log(
+        action="admin.currency_create",
+        actor=current_user,
+        request=request,
+        entity="currency",
+        entity_id=code,
+        changes={
+            "code": {"from": None, "to": code},
+            "name": {"from": None, "to": row.name},
+            "is_enabled": {"from": None, "to": bool(row.is_enabled)},
+        },
+    )
+    return CurrencyOut(code=row.code, name=row.name, is_enabled=bool(row.is_enabled))
+
+
+@router.patch("/currencies/{code}", response_model=CurrencyOut)
+def admin_update_currency(
+    code: str,
+    payload: CurrencyUpdate,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    code_u = code.strip().upper()
+    row = db.query(Currency).filter(Currency.code == code_u).first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Not found")
+    before = {"name": row.name, "is_enabled": bool(row.is_enabled)}
+    if payload.name is not None:
+        row.name = payload.name.strip()
+    if payload.is_enabled is not None:
+        row.is_enabled = bool(payload.is_enabled)
+    db.commit()
+    changes = diff(before, {"name": row.name, "is_enabled": bool(row.is_enabled)})
+    if changes:
+        audit_log(
+            action="admin.currency_update",
+            actor=current_user,
+            request=request,
+            entity="currency",
+            entity_id=row.code,
+            changes=changes,
+        )
+    return CurrencyOut(code=row.code, name=row.name, is_enabled=bool(row.is_enabled))
 
 
 def _validate_required_fields(db: Session, *, category_ids: list[int], field_values: dict[int, str]) -> None:
@@ -446,7 +555,7 @@ def update_transaction_admin(
     if payload.amount is not None:
         tx.amount = payload.amount
     if payload.currency:
-        tx.currency = payload.currency.upper()
+        tx.currency = _require_enabled_currency(db, payload.currency)
     if payload.occurred_at:
         tx.occurred_at = payload.occurred_at
     if payload.note is not None:

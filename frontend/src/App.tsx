@@ -19,6 +19,8 @@ import { CategoriesPage } from "./pages/CategoriesPage";
 import { TagsPage } from "./pages/TagsPage";
 import { UsersPage } from "./pages/UsersPage";
 import { ProfilePage } from "./pages/ProfilePage";
+import { AdminFxRatesPage } from "./pages/AdminFxRatesPage";
+import { AdminCurrenciesPage } from "./pages/AdminCurrenciesPage";
 import { ToastProvider } from "./components/ToastProvider";
 
 export default function App() {
@@ -83,6 +85,22 @@ export default function App() {
                     element={
                       <AdminRoute>
                         <UsersPage />
+                      </AdminRoute>
+                    }
+                  />
+                  <Route
+                    path="admin/fx-rates"
+                    element={
+                      <AdminRoute>
+                        <AdminFxRatesPage />
+                      </AdminRoute>
+                    }
+                  />
+                  <Route
+                    path="admin/currencies"
+                    element={
+                      <AdminRoute>
+                        <AdminCurrenciesPage />
                       </AdminRoute>
                     }
                   />
