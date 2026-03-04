@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import json
 from decimal import Decimal
 from datetime import date, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from sqlalchemy import and_, exists, func, or_
 from sqlalchemy.orm import Session, aliased, joinedload
 
 from app.audit import audit_log, diff
@@ -137,6 +139,8 @@ def list_transactions(
     voided: bool = False,
     category_id: int | None = None,
     tag_id: int | None = None,
+    field_filters: str | None = None,
+    field_filter_groups: str | None = None,
     min_amount: float | None = None,
     max_amount: float | None = None,
     skip: int = 0,
@@ -170,6 +174,164 @@ def list_transactions(
         query = query.filter(Transaction.categories.any(Category.id == category_id))
     if tag_id is not None:
         query = query.filter(Transaction.tags.any(Tag.id == tag_id))
+
+    if field_filter_groups and category_id is not None:
+        try:
+            raw = json.loads(field_filter_groups)
+        except Exception:
+            raise HTTPException(status_code=400, detail="Invalid field_filter_groups")
+        if not isinstance(raw, list):
+            raise HTTPException(status_code=400, detail="Invalid field_filter_groups")
+
+        groups: list[dict[str, object]] = []
+        field_ids: set[int] = set()
+        for item in raw[:100]:
+            if not isinstance(item, dict):
+                continue
+            fid = item.get("field_id") or item.get("fieldId")
+            try:
+                fid_i = int(fid)  # type: ignore[arg-type]
+            except Exception:
+                continue
+            if fid_i <= 0:
+                continue
+            values: list[str] = []
+            raw_values = item.get("values")
+            if isinstance(raw_values, list):
+                for v in raw_values[:50]:
+                    s = str(v).strip()
+                    if s:
+                        values.append(s)
+            values = list(dict.fromkeys(values))
+            include_empty = bool(item.get("include_empty") or item.get("includeEmpty"))
+            if not values and not include_empty:
+                continue
+            groups.append({"field_id": fid_i, "values": values, "include_empty": include_empty})
+            field_ids.add(fid_i)
+
+        if groups:
+            allowed_rows = (
+                db.query(CategoryField.id)
+                .filter(CategoryField.category_id == category_id)
+                .filter(CategoryField.id.in_(list(field_ids)))
+                .all()
+            )
+            allowed_ids = {int(r[0]) for r in allowed_rows}
+            bad = [fid for fid in field_ids if int(fid) not in allowed_ids]
+            if bad:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Invalid field_filter_groups for category {category_id}: {sorted(bad)}",
+                )
+
+            group_preds = []
+            for g in groups:
+                fid_i = int(g["field_id"])
+                values = g.get("values") or []
+                include_empty = bool(g.get("include_empty"))
+                parts = []
+                if isinstance(values, list) and values:
+                    parts.append(
+                        exists().where(
+                            and_(
+                                TransactionFieldValue.transaction_id == Transaction.id,
+                                TransactionFieldValue.field_id == fid_i,
+                                TransactionFieldValue.value.in_(values),
+                            )
+                        )
+                    )
+                if include_empty:
+                    missing = ~exists().where(
+                        and_(
+                            TransactionFieldValue.transaction_id == Transaction.id,
+                            TransactionFieldValue.field_id == fid_i,
+                        )
+                    )
+                    empty = exists().where(
+                        and_(
+                            TransactionFieldValue.transaction_id == Transaction.id,
+                            TransactionFieldValue.field_id == fid_i,
+                            func.length(func.trim(TransactionFieldValue.value)) == 0,
+                        )
+                    )
+                    parts.append(or_(missing, empty))
+                if parts:
+                    group_preds.append(or_(*parts))
+            if group_preds:
+                query = query.filter(or_(*group_preds))
+
+    # Backward-compatible: per-field map filters (AND between fields).
+    if not field_filter_groups and field_filters and category_id is not None:
+        try:
+            raw = json.loads(field_filters)
+        except Exception:
+            raise HTTPException(status_code=400, detail="Invalid field_filters")
+        if not isinstance(raw, dict):
+            raise HTTPException(status_code=400, detail="Invalid field_filters")
+
+        parsed: dict[int, dict[str, object]] = {}
+        for k, v in raw.items():
+            if not str(k).isdigit():
+                raise HTTPException(status_code=400, detail="Invalid field_filters")
+            if not isinstance(v, dict):
+                continue
+            fid = int(k)
+            values: list[str] = []
+            raw_values = v.get("values")
+            if isinstance(raw_values, list):
+                for item in raw_values:
+                    s = str(item).strip()
+                    if s:
+                        values.append(s)
+            values = list(dict.fromkeys(values))
+            include_empty = bool(v.get("include_empty") or v.get("includeEmpty"))
+            if not values and not include_empty:
+                continue
+            parsed[fid] = {"values": values, "include_empty": include_empty}
+
+        if parsed:
+            allowed_rows = (
+                db.query(CategoryField.id)
+                .filter(CategoryField.category_id == category_id)
+                .filter(CategoryField.id.in_(list(parsed.keys())))
+                .all()
+            )
+            allowed_ids = {int(r[0]) for r in allowed_rows}
+            bad = [fid for fid in parsed.keys() if int(fid) not in allowed_ids]
+            if bad:
+                raise HTTPException(status_code=400, detail=f"Invalid field_filters for category {category_id}: {sorted(bad)}")
+
+            for fid, cfg in parsed.items():
+                values = cfg.get("values") or []
+                include_empty = bool(cfg.get("include_empty"))
+                parts = []
+                if isinstance(values, list) and values:
+                    parts.append(
+                        exists().where(
+                            and_(
+                                TransactionFieldValue.transaction_id == Transaction.id,
+                                TransactionFieldValue.field_id == fid,
+                                TransactionFieldValue.value.in_(values),
+                            )
+                        )
+                    )
+                if include_empty:
+                    missing = ~exists().where(
+                        and_(
+                            TransactionFieldValue.transaction_id == Transaction.id,
+                            TransactionFieldValue.field_id == fid,
+                        )
+                    )
+                    empty = exists().where(
+                        and_(
+                            TransactionFieldValue.transaction_id == Transaction.id,
+                            TransactionFieldValue.field_id == fid,
+                            func.length(func.trim(TransactionFieldValue.value)) == 0,
+                        )
+                    )
+                    parts.append(or_(missing, empty))
+                if parts:
+                    query = query.filter(or_(*parts))
     if min_amount is not None:
         query = query.filter(Transaction.amount >= Decimal(str(min_amount)))
     if max_amount is not None:
