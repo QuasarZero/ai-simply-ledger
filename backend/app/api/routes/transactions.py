@@ -258,7 +258,7 @@ def list_transactions(
                 if parts:
                     group_preds.append(or_(*parts))
             if group_preds:
-                query = query.filter(or_(*group_preds))
+                query = query.filter(and_(*group_preds))
 
     # Backward-compatible: per-field map filters (AND between fields).
     if not field_filter_groups and field_filters and category_id is not None:
