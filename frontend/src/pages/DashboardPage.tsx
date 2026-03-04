@@ -1,6 +1,17 @@
 import * as React from "react";
 import { Suspense, useEffect, useMemo, useState } from "react";
-import { Autocomplete, Box, LinearProgress, Paper, Stack, Tab, Tabs, TextField, Typography } from "@mui/material";
+import {
+  Autocomplete,
+  Box,
+  LinearProgress,
+  MenuItem,
+  Paper,
+  Stack,
+  Tab,
+  Tabs,
+  TextField,
+  Typography
+} from "@mui/material";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { useTranslation } from "react-i18next";
 
@@ -27,6 +38,7 @@ export type DashboardData = {
     amount_base: number;
     currency: string;
     amount_raw: number;
+    raw_currency?: string;
     note?: string | null;
     categories: { id: number; name: string }[];
     tags: { id: number; name: string }[];
@@ -37,6 +49,7 @@ export type DashboardData = {
     amount_base: number;
     currency: string;
     amount_raw: number;
+    raw_currency?: string;
     note?: string | null;
     categories: { id: number; name: string }[];
     tags: { id: number; name: string }[];
@@ -46,6 +59,8 @@ export type DashboardData = {
   top_categories_count: { id: number; name: string; value: number }[];
   top_tags_count: { id: number; name: string; value: number }[];
 };
+
+type Currency = { code: string; name: string };
 
 const OverviewTab = React.lazy(() => import("./dashboard/OverviewTab"));
 const CategoriesTab = React.lazy(() => import("./dashboard/CategoriesTab"));
@@ -62,6 +77,7 @@ export function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(false);
   const [tab, setTab] = useState(0);
+  const [currencies, setCurrencies] = useState<Currency[]>([]);
   const { preset, setPreset, start, setStart, end, setEnd } = usePersistedDateRange(
     "dateRange:dashboard",
     30
@@ -76,6 +92,24 @@ export function DashboardPage() {
     const n = raw ? Number(raw) : 0;
     return Number.isFinite(n) ? n : 0;
   });
+  const [baseCurrency, setBaseCurrency] = useState<string>(() => {
+    const raw = localStorage.getItem("dashboard:baseCurrency");
+    const v = (raw || "CNY").toUpperCase();
+    return v;
+  });
+
+  useEffect(() => {
+    api
+      .get("/currencies")
+      .then((r) => setCurrencies((r.data || []) as Currency[]))
+      .catch(() => setCurrencies([]));
+  }, []);
+
+  useEffect(() => {
+    if (!currencies.length) return;
+    const codes = currencies.map((c) => c.code);
+    if (!codes.includes(baseCurrency)) setBaseCurrency(codes[0] || "CNY");
+  }, [baseCurrency, currencies]);
 
   useEffect(() => {
     if (!isAdmin) return;
@@ -89,6 +123,10 @@ export function DashboardPage() {
     if (!isAdmin) return;
     localStorage.setItem("dashboard:userId", String(selectedUserId));
   }, [isAdmin, selectedUserId]);
+
+  useEffect(() => {
+    localStorage.setItem("dashboard:baseCurrency", baseCurrency.toUpperCase());
+  }, [baseCurrency]);
 
   const userOptions = useMemo(() => {
     if (!isAdmin) return [];
@@ -106,7 +144,7 @@ export function DashboardPage() {
 
   const params = useMemo(() => {
     const p: Record<string, any> = {
-      base_currency: "CNY",
+      base_currency: baseCurrency,
       user_id: isAdmin ? selectedUserId : undefined
     };
     if (preset === "all") {
@@ -116,7 +154,7 @@ export function DashboardPage() {
       p.end = end.format("YYYY-MM-DD");
     }
     return p;
-  }, [start, end, isAdmin, selectedUserId, preset]);
+  }, [start, end, isAdmin, selectedUserId, preset, baseCurrency]);
 
   useEffect(() => {
     setLoading(true);
@@ -187,6 +225,22 @@ export function DashboardPage() {
               sx={{ minWidth: 260 }}
             />
           ) : null}
+          <TextField
+            select
+            label={t("targetCurrency")}
+            value={baseCurrency}
+            onChange={(e) => setBaseCurrency(String(e.target.value || "CNY").toUpperCase())}
+            size="small"
+            sx={{ width: 180 }}
+          >
+            {(currencies.length ? currencies.map((c) => c.code) : ["CNY", "USD", "EUR", "JPY", "HKD", "GBP"]).map(
+              (c) => (
+                <MenuItem key={c} value={c}>
+                  {c}
+                </MenuItem>
+              )
+            )}
+          </TextField>
           <Box sx={{ flexGrow: 1 }} />
           {isAdmin ? (
             <Typography variant="body2" sx={{ opacity: 0.75 }}>

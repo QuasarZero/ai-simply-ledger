@@ -51,6 +51,7 @@ export function TagsPage() {
   const { me } = useAuth();
   const [items, setItems] = useState<TagWithUsage[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadedOnce, setLoadedOnce] = useState(false);
   const persisted = useMemo(() => safeParseJson<Record<string, any>>(STORAGE_KEY) || {}, []);
   const [q, setQ] = useState<string>(() => (typeof persisted.q === "string" ? persisted.q : ""));
   const [sortKey, setSortKey] = useState<SortKey>(() => {
@@ -80,6 +81,7 @@ export function TagsPage() {
       setSelectedIds(new Set());
     } finally {
       setLoading(false);
+      setLoadedOnce(true);
     }
   }
 
@@ -172,9 +174,10 @@ export function TagsPage() {
   }, [sortedItems, page, pageSize]);
 
   useEffect(() => {
+    if (!loadedOnce) return;
     if (page === 0) return;
     if (page * pageSize >= sortedItems.length) setPage(0);
-  }, [page, pageSize, sortedItems.length]);
+  }, [loadedOnce, page, pageSize, sortedItems.length]);
 
   return (
     <Stack spacing={2}>

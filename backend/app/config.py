@@ -24,8 +24,22 @@ class Settings(BaseSettings):
     db_user: str = "expense_user"
     db_password: str = "expense_pass"
 
-    fx_base_url: str = "https://api.frankfurter.app"
-    fx_cache_ttl_seconds: int = 60 * 60 * 6
+    fx_currencies: str = "USD,CNY,EUR,JPY,HKD,GBP"
+    fx_providers: str = "frankfurter,fawazahmed,openexchangerates,freecurrencyapi,floatrates"
+    openexchangerates_app_id: str = ""
+    freecurrencyapi_key: str = ""
+
+    frontend_base_url: str = "http://localhost:8080"
+
+    password_reset_token_expire_minutes: int = 30
+    email_mode: str = "log"  # log | smtp
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_from: str = ""
+    smtp_tls: bool = True
+    smtp_ssl: bool = False
 
     admin_username: str = "admin"
     admin_email: str = "admin@example.com"
@@ -45,6 +59,10 @@ class Settings(BaseSettings):
     @property
     def tzinfo(self) -> ZoneInfo:
         return ZoneInfo(self.timezone)
+
+    @property
+    def fx_currency_list(self) -> list[str]:
+        return sorted({c.strip().upper() for c in self.fx_currencies.split(",") if c.strip()})
 
 
 @lru_cache

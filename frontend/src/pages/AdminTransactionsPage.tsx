@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Autocomplete,
   Box,
@@ -79,6 +79,19 @@ type Tag = { id: number; name: string };
 type User = { id: number; email: string; username: string };
 type CategoryField = { id: number; category_id: number; name: string; is_required: boolean; created_at?: string };
 
+type EmptyFieldFilterOption = { kind: "empty" };
+type FieldFilterOption = string | EmptyFieldFilterOption;
+const EMPTY_FIELD_FILTER_OPTION: EmptyFieldFilterOption = { kind: "empty" };
+type FieldFilterGroup = { id: string; fieldId: number | null; values: string[]; includeEmpty: boolean };
+
+function newGroupId(): string {
+  try {
+    return crypto.randomUUID();
+  } catch {
+    return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  }
+}
+
 export function AdminTransactionsPage() {
   const { t } = useTranslation();
   const { confirm, dialog } = useConfirm();
@@ -120,10 +133,34 @@ export function AdminTransactionsPage() {
     const persistedId = persisted.linkTagId;
     return typeof persistedId === "number" && Number.isFinite(persistedId) ? persistedId : null;
   });
+  const [fieldFilterGroups, setFieldFilterGroups] = useState<FieldFilterGroup[]>(() => {
+    const persistedCategoryId = persisted.fieldFilterGroupsCategoryId;
+    if (typeof persistedCategoryId !== "number" || persistedCategoryId !== linkCategoryId) return [];
+    const raw = persisted.fieldFilterGroups;
+    if (!Array.isArray(raw)) return [];
+    const out: FieldFilterGroup[] = [];
+    for (const item of raw.slice(0, 50)) {
+      if (!item || typeof item !== "object") continue;
+      const obj = item as any;
+      const id = typeof obj.id === "string" && obj.id ? obj.id : newGroupId();
+      const fieldId = typeof obj.fieldId === "number" && Number.isFinite(obj.fieldId) ? obj.fieldId : null;
+      const values = Array.isArray(obj.values) ? obj.values.map((x: any) => String(x).trim()).filter(Boolean) : [];
+      const includeEmpty = !!obj.includeEmpty;
+      out.push({ id, fieldId, values: Array.from(new Set(values)), includeEmpty });
+    }
+    return out;
+  });
+  const hasFieldFilterGroups = useMemo(
+    () => fieldFilterGroups.some((g) => !!g.fieldId && (g.includeEmpty || (g.values || []).length > 0)),
+    [fieldFilterGroups]
+  );
   const [listCategoryFields, setListCategoryFields] = useState<CategoryField[]>([]);
   const [loadingListCategoryFields, setLoadingListCategoryFields] = useState(false);
+  const [listCategoryFieldsLoaded, setListCategoryFieldsLoaded] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
+  const [fieldValueOptions, setFieldValueOptions] = useState<Record<number, string[]>>({});
+  const fieldFilterTimers = useRef<Record<number, any>>({});
   const [pageSize, setPageSize] = useState<number>(() => {
     const v = persisted.pageSize;
     return typeof v === "number" && Number.isFinite(v) && v > 0 ? v : 20;
@@ -162,6 +199,8 @@ export function AdminTransactionsPage() {
       linkUserId,
       linkCategoryId,
       linkTagId,
+      fieldFilterGroupsCategoryId: linkCategoryId,
+      fieldFilterGroups,
       sortKey,
       sortDir,
       page,
@@ -169,7 +208,22 @@ export function AdminTransactionsPage() {
       appliedFilterKey
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-  }, [voided, typeFilter, q, minAmount, maxAmount, linkUserId, linkCategoryId, linkTagId, sortKey, sortDir, page, pageSize, appliedFilterKey]);
+  }, [
+    voided,
+    typeFilter,
+    q,
+    minAmount,
+    maxAmount,
+    linkUserId,
+    linkCategoryId,
+    linkTagId,
+    fieldFilterGroups,
+    sortKey,
+    sortDir,
+    page,
+    pageSize,
+    appliedFilterKey
+  ]);
 
   useEffect(() => {
     const next = new URLSearchParams(searchParams);
@@ -213,15 +267,21 @@ export function AdminTransactionsPage() {
     async function run() {
       if (!linkCategoryId) {
         setListCategoryFields([]);
+        setListCategoryFieldsLoaded(false);
+        setFieldFilterGroups([]);
         return;
       }
       setLoadingListCategoryFields(true);
+      setListCategoryFieldsLoaded(false);
       try {
         const res = await api.get(`/categories/${linkCategoryId}/fields`);
         if (cancelled) return;
         setListCategoryFields(((res.data || []) as CategoryField[]).filter((f) => f && typeof f.id === "number"));
       } finally {
-        if (!cancelled) setLoadingListCategoryFields(false);
+        if (!cancelled) {
+          setLoadingListCategoryFields(false);
+          setListCategoryFieldsLoaded(true);
+        }
       }
     }
     run().catch(() => {});
@@ -229,6 +289,23 @@ export function AdminTransactionsPage() {
       cancelled = true;
     };
   }, [linkCategoryId]);
+
+  useEffect(() => {
+    if (!linkCategoryId) return;
+    if (!listCategoryFieldsLoaded) return;
+    if (listCategoryFields.length === 0) {
+      setFieldFilterGroups([]);
+      return;
+    }
+    const allowed = new Set(listCategoryFields.map((f) => f.id));
+    setFieldFilterGroups((prev) =>
+      prev.map((g) => {
+        if (!g.fieldId) return g;
+        if (allowed.has(g.fieldId)) return g;
+        return { ...g, fieldId: null, values: [], includeEmpty: false };
+      })
+    );
+  }, [linkCategoryId, listCategoryFields, listCategoryFieldsLoaded]);
 
   useEffect(() => {
     if (!isFieldSortKey(sortKey)) return;
@@ -254,6 +331,11 @@ export function AdminTransactionsPage() {
     return map;
   }, [users]);
 
+  async function fetchFieldValueOptions(fieldId: number, query: string) {
+    const res = await api.get(`/category-fields/${fieldId}/values`, { params: { q: query || undefined } });
+    setFieldValueOptions((prev) => ({ ...prev, [fieldId]: (res.data || []) as string[] }));
+  }
+
   function buildFilterParams() {
     const p: Record<string, any> = {
       user_id: linkUserId ?? undefined,
@@ -272,6 +354,16 @@ export function AdminTransactionsPage() {
     if (max !== "" && !Number.isNaN(Number(max))) p.max_amount = Number(max);
     if (linkCategoryId) p.category_id = linkCategoryId;
     if (linkTagId) p.tag_id = linkTagId;
+    if (linkCategoryId) {
+      const groups = fieldFilterGroups
+        .filter((g) => !!g.fieldId && (g.includeEmpty || (g.values || []).length > 0))
+        .map((g) => ({
+          field_id: g.fieldId,
+          values: (g.values || []).map((x) => String(x).trim()).filter(Boolean),
+          include_empty: !!g.includeEmpty
+        }));
+      if (groups.length > 0) p.field_filter_groups = JSON.stringify(groups);
+    }
     return p;
   }
 
@@ -286,6 +378,7 @@ export function AdminTransactionsPage() {
 
   function applyLinkedCategory(nextId: number) {
     setLinkCategoryId(nextId);
+    setFieldFilterGroups([]);
     const next = new URLSearchParams(searchParams);
     next.set("categoryId", String(nextId));
     setSearchParams(next);
@@ -293,6 +386,7 @@ export function AdminTransactionsPage() {
     setPage(0);
     const p = buildFilterParams();
     p.category_id = nextId;
+    delete p.field_filter_groups;
     const key = JSON.stringify(p);
     setAppliedFilters(p);
     setAppliedFilterKey(key);
@@ -454,6 +548,12 @@ export function AdminTransactionsPage() {
             e.preventDefault();
             applyFilters();
           }}
+          onKeyDownCapture={(e) => {
+            if (e.key !== "Enter") return;
+            // Only allow Ctrl/Cmd+Enter to apply filters.
+            e.preventDefault();
+            if (e.ctrlKey || e.metaKey) applyFilters();
+          }}
         >
           <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
             <DateRangePresets
@@ -540,14 +640,15 @@ export function AdminTransactionsPage() {
               label={`${t("linkedCategory")}: ${
                 categories.find((c) => c.id === linkCategoryId)?.name ?? `#${linkCategoryId}`
               }`}
-              onDelete={() => {
-                setLinkCategoryId(null);
-                const next = new URLSearchParams(searchParams);
-                next.delete("categoryId");
-                setSearchParams(next);
-              }}
-            />
-          ) : null}
+                onDelete={() => {
+                  setLinkCategoryId(null);
+                  setFieldFilterGroups([]);
+                  const next = new URLSearchParams(searchParams);
+                  next.delete("categoryId");
+                  setSearchParams(next);
+                }}
+              />
+           ) : null}
           {linkTagId ? (
             <Chip
               color="secondary"
@@ -568,19 +669,144 @@ export function AdminTransactionsPage() {
             size="small"
             sx={{ width: 140 }}
           />
-          <TextField
-            label={t("maxAmount")}
-            value={maxAmount}
-            onChange={(e) => setMaxAmount(e.target.value)}
-            size="small"
-            sx={{ width: 140 }}
-          />
-        </Stack>
-        <Button 
-          variant="outlined" 
-          type="submit" 
-          fullWidth 
-          sx={{ mt: 2 }}
+           <TextField
+             label={t("maxAmount")}
+             value={maxAmount}
+             onChange={(e) => setMaxAmount(e.target.value)}
+             size="small"
+             sx={{ width: 140 }}
+           />
+         </Stack>
+
+          {linkCategoryId && listCategoryFields.length > 0 ? (
+            <Box sx={{ mt: 2 }}>
+              <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
+                <Typography variant="subtitle2">{t("fieldFilters")}</Typography>
+                <Button
+                  size="small"
+                  onClick={() =>
+                    setFieldFilterGroups((prev) => [
+                      ...prev,
+                      { id: newGroupId(), fieldId: null, values: [], includeEmpty: false }
+                    ])
+                  }
+                >
+                  {t("addFilterGroup")}
+                </Button>
+                {hasFieldFilterGroups ? (
+                  <Button size="small" onClick={() => setFieldFilterGroups([])}>
+                    {t("clearFieldFilters")}
+                  </Button>
+                ) : null}
+              </Stack>
+
+              <Stack spacing={1}>
+                {fieldFilterGroups.map((g) => {
+                  const field = g.fieldId ? listCategoryFields.find((f) => f.id === g.fieldId) || null : null;
+                  const value: FieldFilterOption[] = [
+                    ...(g.includeEmpty ? [EMPTY_FIELD_FILTER_OPTION] : []),
+                    ...(g.values || [])
+                  ];
+                  const options: FieldFilterOption[] = [
+                    EMPTY_FIELD_FILTER_OPTION,
+                    ...(((g.fieldId ? fieldValueOptions[g.fieldId] : []) || []) as string[])
+                      .map((x) => String(x))
+                      .filter((x) => x.trim() !== "")
+                  ];
+
+                  return (
+                    <Stack
+                      key={g.id}
+                      direction="row"
+                      spacing={1}
+                      alignItems="center"
+                      flexWrap="wrap"
+                      sx={{ p: 1, border: "1px solid", borderColor: "divider", borderRadius: 1 }}
+                    >
+                      <Autocomplete
+                        options={listCategoryFields}
+                        getOptionLabel={(o) => o.name}
+                        value={field as any}
+                        onChange={(_, v) => {
+                          const nextId = v && typeof (v as any).id === "number" ? Number((v as any).id) : null;
+                          setFieldFilterGroups((prev) =>
+                            prev.map((x) =>
+                              x.id === g.id ? { ...x, fieldId: nextId, values: [], includeEmpty: false } : x
+                            )
+                          );
+                        }}
+                        renderInput={(params) => <TextField {...params} label={t("fieldName")} size="small" />}
+                        sx={{ minWidth: 240, flex: "1 1 240px", maxWidth: 360 }}
+                      />
+
+                      <Autocomplete
+                        multiple
+                        freeSolo
+                        disabled={!g.fieldId}
+                        options={options as any}
+                        value={value as any}
+                        onOpen={() => {
+                          if (!g.fieldId) return;
+                          if ((fieldValueOptions[g.fieldId] || []).length === 0) {
+                            fetchFieldValueOptions(g.fieldId, "").catch(() => {});
+                          }
+                        }}
+                        isOptionEqualToValue={(a: any, b: any) => {
+                          if (typeof a === "string" && typeof b === "string") return a === b;
+                          if (typeof a === "string" || typeof b === "string") return false;
+                          return a?.kind === "empty" && b?.kind === "empty";
+                        }}
+                        getOptionLabel={(o: any) => {
+                          if (typeof o === "string") return o;
+                          return t("emptyNotSet");
+                        }}
+                        onInputChange={(_, v, reason) => {
+                          if (reason !== "input") return;
+                          if (!g.fieldId) return;
+                          if (fieldFilterTimers.current[g.fieldId]) clearTimeout(fieldFilterTimers.current[g.fieldId]);
+                          fieldFilterTimers.current[g.fieldId] = setTimeout(() => {
+                            fetchFieldValueOptions(g.fieldId as number, v).catch(() => {});
+                          }, 250);
+                        }}
+                        onChange={(_, v) => {
+                          const arr = (v || []) as FieldFilterOption[];
+                          const includeEmpty = arr.some((x) => typeof x !== "string");
+                          const values = Array.from(
+                            new Set(
+                              arr
+                                .filter((x): x is string => typeof x === "string")
+                                .map((x) => x.trim())
+                                .filter(Boolean)
+                            )
+                          );
+                          setFieldFilterGroups((prev) =>
+                            prev.map((x) => (x.id === g.id ? { ...x, values, includeEmpty } : x))
+                          );
+                        }}
+                        renderInput={(params) => (
+                          <TextField {...params} label={t("value")} size="small" />
+                        )}
+                        sx={{ minWidth: 320, flex: "2 1 320px", maxWidth: 520 }}
+                      />
+
+                      <Button
+                        size="small"
+                        color="error"
+                        onClick={() => setFieldFilterGroups((prev) => prev.filter((x) => x.id !== g.id))}
+                      >
+                        {t("removeFilterGroup")}
+                      </Button>
+                    </Stack>
+                  );
+                })}
+              </Stack>
+            </Box>
+          ) : null}
+         <Button 
+           variant="outlined" 
+           type="submit" 
+           fullWidth 
+           sx={{ mt: 2 }}
         >
           {t("apply")}
         </Button>

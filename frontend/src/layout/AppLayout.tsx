@@ -63,7 +63,9 @@ export function AppLayout({
     if (me?.is_admin) {
       base.push({ to: "/admin/transactions", label: t("adminTransactions") });
       base.push({ to: "/admin/categories", label: t("categories") });
+      base.push({ to: "/admin/currencies", label: t("currencies") });
       base.push({ to: "/admin/users", label: t("users") });
+      base.push({ to: "/admin/fx-rates", label: t("fxRates") });
     }
     return base;
   }, [me?.is_admin, t]);

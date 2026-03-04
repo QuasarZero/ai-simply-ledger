@@ -11,6 +11,7 @@ import { buildTheme } from "./theme";
 import { ProtectedRoute, AdminRoute } from "./components/ProtectedRoute";
 import { AppLayout } from "./layout/AppLayout";
 import { LoginPage } from "./pages/LoginPage";
+import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { TransactionsPage } from "./pages/TransactionsPage";
 import { AdminTransactionsPage } from "./pages/AdminTransactionsPage";
@@ -18,6 +19,8 @@ import { CategoriesPage } from "./pages/CategoriesPage";
 import { TagsPage } from "./pages/TagsPage";
 import { UsersPage } from "./pages/UsersPage";
 import { ProfilePage } from "./pages/ProfilePage";
+import { AdminFxRatesPage } from "./pages/AdminFxRatesPage";
+import { AdminCurrenciesPage } from "./pages/AdminCurrenciesPage";
 import { ToastProvider } from "./components/ToastProvider";
 
 export default function App() {
@@ -47,7 +50,8 @@ export default function App() {
           <ToastProvider>
             <BrowserRouter>
               <Routes>
-                <Route path="/login" element={<LoginPage />} />
+                <Route path="/login" element={<LoginPage mode={mode} toggleTheme={toggleTheme} />} />
+                <Route path="/reset-password" element={<ResetPasswordPage />} />
                 <Route
                   path="/*"
                   element={
@@ -81,6 +85,22 @@ export default function App() {
                     element={
                       <AdminRoute>
                         <UsersPage />
+                      </AdminRoute>
+                    }
+                  />
+                  <Route
+                    path="admin/fx-rates"
+                    element={
+                      <AdminRoute>
+                        <AdminFxRatesPage />
+                      </AdminRoute>
+                    }
+                  />
+                  <Route
+                    path="admin/currencies"
+                    element={
+                      <AdminRoute>
+                        <AdminCurrenciesPage />
                       </AdminRoute>
                     }
                   />

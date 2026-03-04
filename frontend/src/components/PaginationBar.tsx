@@ -6,8 +6,12 @@ type Props = {
   page: number; // 0-based
   pageSize: number;
   total: number;
-  onPageChange: (nextPage: number) => void;
-  onPageSizeChange: (nextPageSize: number) => void;
+  // Prefer these prop names.
+  onPageChange?: (nextPage: number) => void;
+  onPageSizeChange?: (nextPageSize: number) => void;
+  // Backward-compatible aliases used in older pages.
+  onChangePage?: (nextPage: number) => void;
+  onChangePageSize?: (nextPageSize: number) => void;
   maxPageSize?: number;
 };
 
@@ -19,10 +23,14 @@ export function PaginationBar({
   total,
   onPageChange,
   onPageSizeChange,
+  onChangePage,
+  onChangePageSize,
   maxPageSize = 500
 }: Props) {
   const { t } = useTranslation();
   const totalPages = useMemo(() => Math.max(1, Math.ceil(Math.max(0, total) / Math.max(1, pageSize))), [total, pageSize]);
+  const handlePageChange = onPageChange || onChangePage || (() => {});
+  const handlePageSizeChange = onPageSizeChange || onChangePageSize || (() => {});
 
   const selectValue = PRESET_SIZES.includes(pageSize as any) ? String(pageSize) : "custom";
   const customLabel =
@@ -40,7 +48,7 @@ export function PaginationBar({
     const n = Number(customValue);
     if (!Number.isFinite(n) || n <= 0) return;
     const clamped = Math.min(Math.max(1, Math.floor(n)), maxPageSize);
-    onPageSizeChange(clamped);
+    handlePageSizeChange(clamped);
     setOpenCustom(false);
   }
 
@@ -49,7 +57,7 @@ export function PaginationBar({
       <Pagination
         count={totalPages}
         page={Math.min(totalPages, Math.max(1, page + 1))}
-        onChange={(_, p) => onPageChange(p - 1)}
+        onChange={(_, p) => handlePageChange(p - 1)}
         size="small"
         color="primary"
       />
@@ -59,16 +67,16 @@ export function PaginationBar({
           label={t("rowsPerPage")}
           size="small"
           value={selectValue}
-          onChange={(e) => {
-            const v = e.target.value;
-            if (v === "custom") {
-              openDialog();
-              return;
-            }
-            onPageSizeChange(Number(v));
-          }}
-          sx={{ width: 180 }}
-        >
+           onChange={(e) => {
+             const v = e.target.value;
+             if (v === "custom") {
+               openDialog();
+               return;
+             }
+            handlePageSizeChange(Number(v));
+           }}
+           sx={{ width: 180 }}
+         >
           {PRESET_SIZES.map((n) => (
             <MenuItem key={n} value={String(n)}>
               {n}
@@ -86,7 +94,7 @@ export function PaginationBar({
             {customLabel}
           </MenuItem>
         </TextField>
-        <Button variant="outlined" size="small" onClick={() => onPageChange(0)} disabled={page === 0}>
+        <Button variant="outlined" size="small" onClick={() => handlePageChange(0)} disabled={page === 0}>
           {t("page")} 1
         </Button>
       </Stack>

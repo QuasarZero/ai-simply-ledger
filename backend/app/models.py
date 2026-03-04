@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 
 from sqlalchemy import (
     Boolean,
     CheckConstraint,
     Column,
+    Date,
     DateTime,
     ForeignKey,
     Integer,
@@ -13,6 +14,7 @@ from sqlalchemy import (
     String,
     Table,
     Text,
+    UniqueConstraint,
     func,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -82,6 +84,15 @@ class Tag(Base):
     )
 
 
+class Currency(Base):
+    __tablename__ = "currencies"
+
+    code: Mapped[str] = mapped_column(String(8), primary_key=True)
+    name: Mapped[str] = mapped_column(String(128))
+    is_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 class Transaction(Base):
     __tablename__ = "transactions"
 
@@ -139,3 +150,19 @@ class TransactionFieldValue(Base):
 
     transaction: Mapped[Transaction] = relationship(back_populates="field_values")
     field: Mapped[CategoryField] = relationship(back_populates="values")
+
+
+class FxRate(Base):
+    __tablename__ = "fx_rates"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    rate_date: Mapped[date] = mapped_column(Date, index=True)
+    currency: Mapped[str] = mapped_column(String(8), index=True)
+    usd_rate: Mapped[float] = mapped_column(Numeric(18, 8))
+    source: Mapped[str] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    __table_args__ = (UniqueConstraint("rate_date", "currency", name="uq_fx_rates_date_currency"),)
