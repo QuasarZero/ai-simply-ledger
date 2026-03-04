@@ -14,7 +14,7 @@ from app.db import get_db
 from app.deps import require_admin
 from app.models import Category, CategoryField, Currency, FxRate, Tag, Transaction, TransactionFieldValue, User
 from app.schemas.currencies import CurrencyCreate, CurrencyOut, CurrencyUpdate
-from app.schemas.fx_rates import FxRateRowOut, FxSyncIn, FxSyncOut
+from app.schemas.fx_rates import FxRateRowOut, FxSyncIn, FxSyncJobStartOut, FxSyncJobStatusOut
 from app.schemas.transactions import (
     BulkActionIn,
     TransactionListAdmin,
@@ -23,7 +23,8 @@ from app.schemas.transactions import (
 )
 from app.schemas.users import ResetPasswordIn, UserCreate, UserMiniOut, UserOut, UserUpdate
 from app.security import hash_password
-from app.services.fx import ensure_currency_catalog, sync_fx_rates
+from app.services.fx import ensure_currency_catalog
+from app.services.fx_sync_jobs import get_job, start_fx_sync_job
 
 router = APIRouter(dependencies=[Depends(require_admin)])
 settings = get_settings()
@@ -97,33 +98,38 @@ def _require_enabled_currency(db: Session, code: str) -> str:
     return code_u
 
 
-@router.post("/fx/sync", response_model=FxSyncOut)
+@router.post("/fx/sync", response_model=FxSyncJobStartOut)
 def admin_fx_sync(
     payload: FxSyncIn,
     request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin),
 ):
-    try:
-        result = sync_fx_rates(
-            db,
-            start=payload.start,
-            end=payload.end,
-            currencies=payload.currencies,
-            source=settings.fx_source,
-        )
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    # Start an async job and let the UI poll status.
+    job = start_fx_sync_job(
+        start=payload.start,
+        end=payload.end,
+        currencies=payload.currencies,
+        source=None,
+    )
     audit_log(
-        action="admin.fx_sync",
+        action="admin.fx_sync_start",
         actor=current_user,
         request=request,
         entity="fx_rates",
         entity_id=None,
         changes=None,
-        extra={"start": payload.start.isoformat(), "end": payload.end.isoformat(), **result},
+        extra={"job_id": job.job_id, "start": payload.start.isoformat(), "end": payload.end.isoformat()},
     )
-    return FxSyncOut(**result)
+    return FxSyncJobStartOut(job_id=job.job_id)
+
+
+@router.get("/fx/sync/{job_id}", response_model=FxSyncJobStatusOut)
+def admin_fx_sync_status(job_id: str):
+    job = get_job(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Not found")
+    return FxSyncJobStatusOut(**job.to_dict())
 
 
 @router.get("/fx/rates", response_model=list[FxRateRowOut])

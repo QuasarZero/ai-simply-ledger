@@ -27,6 +27,25 @@ import { PaginationBar } from "../components/PaginationBar";
 import { safeParseJson } from "../storage";
 
 type FxSyncResult = { days: number; currencies: number; rows_upserted: number };
+type FxSyncJobStart = { job_id: string };
+type FxSyncJobStatus = {
+  job_id: string;
+  status: "running" | "success" | "partial" | "error";
+  started_at: number;
+  updated_at: number;
+  progress_percent: number;
+  provider?: string | null;
+  provider_index: number;
+  provider_total: number;
+  day_total: number;
+  day_done: number;
+  missing_total: number;
+  missing_remaining: number;
+  rows_upserted: number;
+  message: string;
+  error?: string | null;
+  result?: FxSyncResult | null;
+};
 type Currency = { code: string; name: string };
 type FxRateRow = { rate_date: string; currency: string; usd_rate: number; source: string };
 type SortDir = "asc" | "desc";
@@ -36,13 +55,15 @@ const STORAGE_KEY = "pageState:adminFxRates";
 export function AdminFxRatesPage() {
   const { t } = useTranslation();
   const { preset, setPreset, start, setStart, end, setEnd } = usePersistedDateRange("dateRange:fxSync", 30);
+  const persisted = useMemo(() => safeParseJson<Record<string, any>>(STORAGE_KEY) || {}, []);
   const [loadingSync, setLoadingSync] = useState(false);
   const [loadingList, setLoadingList] = useState(false);
   const [result, setResult] = useState<FxSyncResult | null>(null);
+  const [jobId, setJobId] = useState<string>(() => (typeof persisted.jobId === "string" ? persisted.jobId : ""));
+  const [job, setJob] = useState<FxSyncJobStatus | null>(null);
   const [currencies, setCurrencies] = useState<Currency[]>([]);
   const [currenciesLoaded, setCurrenciesLoaded] = useState(false);
   const [rows, setRows] = useState<FxRateRow[]>([]);
-  const persisted = useMemo(() => safeParseJson<Record<string, any>>(STORAGE_KEY) || {}, []);
   const [sortKey, setSortKey] = useState<SortKey>(() => (typeof persisted.sortKey === "string" ? persisted.sortKey : "date"));
   const [sortDir, setSortDir] = useState<SortDir>(() =>
     persisted.sortDir === "asc" || persisted.sortDir === "desc" ? persisted.sortDir : "desc"
@@ -111,11 +132,13 @@ export function AdminFxRatesPage() {
         start: start.format("YYYY-MM-DD"),
         end: end.format("YYYY-MM-DD")
       });
-      setResult(res.data as FxSyncResult);
-      emitToast({ severity: "success", message: t("syncCompleted") });
-      await loadRates();
-    } finally {
+      const data = res.data as FxSyncJobStart;
+      setJobId(data.job_id);
+      setJob(null);
+      setResult(null);
+    } catch (e: any) {
       setLoadingSync(false);
+      emitToast({ severity: "error", message: t("syncFailed") });
     }
   }
 
@@ -126,9 +149,58 @@ export function AdminFxRatesPage() {
   }, [currencies]);
 
   useEffect(() => {
-    const payload = { sortKey, sortDir, page, pageSize };
+    const payload = { sortKey, sortDir, page, pageSize, jobId };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-  }, [page, pageSize, sortDir, sortKey]);
+  }, [jobId, page, pageSize, sortDir, sortKey]);
+
+  useEffect(() => {
+    if (!jobId) return;
+    let cancelled = false;
+    let stopped = false;
+    setLoadingSync(true);
+
+    const stop = (intervalId?: any) => {
+      if (stopped) return;
+      stopped = true;
+      if (intervalId) clearInterval(intervalId);
+    };
+
+    const tick = async () => {
+      if (cancelled || stopped) return;
+      const res = await api.get(`/admin/fx/sync/${jobId}`);
+      if (cancelled || stopped) return;
+      const st = res.data as FxSyncJobStatus;
+      setJob(st);
+      if (st.status === "success" || st.status === "partial" || st.status === "error") {
+        // Stop polling first to avoid repeated completion toasts/refreshes.
+        stop(intervalId);
+        setLoadingSync(false);
+        if (st.result) setResult(st.result);
+        if (st.status === "success") emitToast({ severity: "success", message: t("syncCompleted") });
+        if (st.status === "partial") emitToast({ severity: "warning", message: t("syncCompletedPartial") });
+        if (st.status === "error") emitToast({ severity: "error", message: st.error || t("syncFailed") });
+        if (st.status !== "error") await loadRates();
+        // Clear jobId so refresh won't re-toast / re-poll completed job.
+        setJobId("");
+      }
+    };
+
+    let intervalId: any = null;
+    tick().catch(() => {
+      if (cancelled) return;
+      stop(intervalId);
+      setLoadingSync(false);
+      setJob(null);
+      setJobId("");
+      emitToast({ severity: "error", message: t("syncStatusLost") });
+    });
+    intervalId = setInterval(() => tick().catch(() => {}), 1000);
+    return () => {
+      cancelled = true;
+      stop(intervalId);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jobId]);
 
   useEffect(() => {
     if (!currenciesLoaded) return;
@@ -219,7 +291,15 @@ export function AdminFxRatesPage() {
   return (
     <Stack spacing={2}>
       <Paper sx={{ p: 2 }}>
-        {loadingSync ? <LinearProgress sx={{ mb: 2 }} /> : null}
+        {loadingSync ? (
+          <Box sx={{ mb: 2 }}>
+            <LinearProgress variant="determinate" value={job?.progress_percent ?? 0} />
+            <Typography variant="body2" sx={{ mt: 1, opacity: 0.85 }}>
+              {job?.provider ? `${t("provider")}: ${job.provider}` : null}
+              {job?.message ? ` ${job.message}` : null}
+            </Typography>
+          </Box>
+        ) : null}
         <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
           <Typography variant="h6">{t("fxRates")}</Typography>
           <Box sx={{ flexGrow: 1 }} />

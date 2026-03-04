@@ -24,10 +24,10 @@ class Settings(BaseSettings):
     db_user: str = "expense_user"
     db_password: str = "expense_pass"
 
-    fx_base_url: str = "https://api.frankfurter.app"
-    fx_cache_ttl_seconds: int = 60 * 60 * 6
-    fx_source: str = "frankfurter"
     fx_currencies: str = "USD,CNY,EUR,JPY,HKD,GBP"
+    fx_providers: str = "frankfurter,fawazahmed,openexchangerates,freecurrencyapi,floatrates"
+    openexchangerates_app_id: str = ""
+    freecurrencyapi_key: str = ""
 
     frontend_base_url: str = "http://localhost:8080"
 

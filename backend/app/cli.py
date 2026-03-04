@@ -94,7 +94,7 @@ def cmd_sync_fx(args: argparse.Namespace) -> int:
                 start=start,
                 end=end,
                 currencies=currencies,
-                source=settings.fx_source,
+                source=None,
             )
         except ValueError as e:
             print(str(e), file=sys.stderr)
