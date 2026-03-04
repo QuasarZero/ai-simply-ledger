@@ -40,6 +40,7 @@
   "syncFailed": "同步失败",
   "syncStatusLost": "同步状态丢失（后端可能重启）。请重新同步。",
   "provider": "服务商",
+  "source": "来源",
   "dateRangeRequired": "请选择日期范围",
   "startDate": "开始日期",
   "endDate": "结束日期",

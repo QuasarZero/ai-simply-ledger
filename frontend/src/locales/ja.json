@@ -40,6 +40,7 @@
   "syncFailed": "同期失敗",
   "syncStatusLost": "同期状態が失われました（バックエンド再起動の可能性）。再度同期してください。",
   "provider": "プロバイダー",
+  "source": "ソース",
   "dateRangeRequired": "日付範囲を選択してください",
   "startDate": "開始",
   "endDate": "終了",

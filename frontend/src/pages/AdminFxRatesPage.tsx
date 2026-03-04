@@ -12,6 +12,7 @@ import {
   TableHead,
   TableRow,
   TableSortLabel,
+  Tooltip,
   Typography
 } from "@mui/material";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
@@ -243,6 +244,14 @@ export function AdminFxRatesPage() {
     return row ? Number(row.usd_rate) : null;
   }
 
+  function sourceAt(dateStr: string, code: string): string | null {
+    const c = code.toUpperCase();
+    if (c === "USD") return null;
+    const m = rateByDateCurrency.get(dateStr);
+    const row = m?.get(c);
+    return row?.source ? String(row.source) : null;
+  }
+
   function requestSort(next: SortKey) {
     if (next === sortKey) {
       setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -387,7 +396,18 @@ export function AdminFxRatesPage() {
                 <TableRow key={d}>
                   <TableCell>{d}</TableCell>
                   {currencyCodes.map((c) => (
-                    <TableCell key={c}>{formatRate(valueAt(d, c))}</TableCell>
+                    <TableCell key={c}>
+                      {(() => {
+                        const rate = formatRate(valueAt(d, c));
+                        const src = sourceAt(d, c);
+                        if (!src || rate === "-") return rate;
+                        return (
+                          <Tooltip title={`${t("source")}: ${src}`} enterDelay={200}>
+                            <span>{rate}</span>
+                          </Tooltip>
+                        );
+                      })()}
+                    </TableCell>
                   ))}
                 </TableRow>
               ))}
