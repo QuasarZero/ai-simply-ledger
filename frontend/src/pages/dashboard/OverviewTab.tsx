@@ -41,6 +41,11 @@ export default function OverviewTab({
     income: false,
     expense: false
   });
+  const [monthlyHoverSeries, setMonthlyHoverSeries] = React.useState<"income" | "expense" | null>(null);
+  const [monthlyHiddenSeries, setMonthlyHiddenSeries] = React.useState<{ income: boolean; expense: boolean }>({
+    income: false,
+    expense: false
+  });
   const [monthly, setMonthly] = React.useState<MonthlyTrend | null>(null);
   const [loadingMonthly, setLoadingMonthly] = React.useState(false);
   const [monthsSpan, setMonthsSpan] = React.useState<number>(() => {
@@ -190,11 +195,74 @@ export default function OverviewTab({
                 <XAxis dataKey="month" />
                 <YAxis />
                 <Tooltip formatter={(v: any) => formatMoney(Number(v))} />
-                <Line type="monotone" dataKey="income" stroke="#2e7d32" name={t("income")} strokeWidth={2} />
-                <Line type="monotone" dataKey="expense" stroke="#d32f2f" name={t("expense")} strokeWidth={2} />
+                <Line
+                  type="monotone"
+                  dataKey="income"
+                  stroke="#2e7d32"
+                  name={t("income")}
+                  hide={monthlyHiddenSeries.income}
+                  opacity={monthlyHoverSeries != null && monthlyHoverSeries !== "income" ? 0.2 : 1}
+                  strokeWidth={monthlyHoverSeries === "income" ? 3 : 2}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="expense"
+                  stroke="#d32f2f"
+                  name={t("expense")}
+                  hide={monthlyHiddenSeries.expense}
+                  opacity={monthlyHoverSeries != null && monthlyHoverSeries !== "expense" ? 0.2 : 1}
+                  strokeWidth={monthlyHoverSeries === "expense" ? 3 : 2}
+                />
               </LineChart>
             </ResponsiveContainer>
           )}
+        </Box>
+        <Box
+          sx={{
+            mt: 1,
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 1.5
+          }}
+        >
+          <Box
+            onMouseEnter={() => setMonthlyHoverSeries(monthlyHiddenSeries.income ? null : "income")}
+            onMouseLeave={() => setMonthlyHoverSeries(null)}
+            onClick={() => setMonthlyHiddenSeries((s) => ({ ...s, income: !s.income }))}
+            sx={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 0.75,
+              cursor: "pointer",
+              userSelect: "none",
+              opacity: monthlyHiddenSeries.income ? 0.4 : 1,
+              textDecoration: monthlyHiddenSeries.income ? "line-through" : "none"
+            }}
+          >
+            <Box sx={{ width: 10, height: 10, borderRadius: 0.5, bgcolor: "#2e7d32", flex: "0 0 auto" }} />
+            <Typography variant="caption" sx={{ lineHeight: 1.2 }}>
+              {t("income")}
+            </Typography>
+          </Box>
+          <Box
+            onMouseEnter={() => setMonthlyHoverSeries(monthlyHiddenSeries.expense ? null : "expense")}
+            onMouseLeave={() => setMonthlyHoverSeries(null)}
+            onClick={() => setMonthlyHiddenSeries((s) => ({ ...s, expense: !s.expense }))}
+            sx={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 0.75,
+              cursor: "pointer",
+              userSelect: "none",
+              opacity: monthlyHiddenSeries.expense ? 0.4 : 1,
+              textDecoration: monthlyHiddenSeries.expense ? "line-through" : "none"
+            }}
+          >
+            <Box sx={{ width: 10, height: 10, borderRadius: 0.5, bgcolor: "#d32f2f", flex: "0 0 auto" }} />
+            <Typography variant="caption" sx={{ lineHeight: 1.2 }}>
+              {t("expense")}
+            </Typography>
+          </Box>
         </Box>
       </Paper>
 
