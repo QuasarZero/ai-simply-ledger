@@ -43,11 +43,13 @@ import { useConfirm } from "../hooks/useConfirm";
 import { useSearchParams } from "react-router-dom";
 import { safeParseJson } from "../storage";
 import { PaginationBar } from "../components/PaginationBar";
+import { formatMoney } from "../formatMoney";
 
 type Category = { id: number; name: string; description?: string | null };
 type Tag = { id: number; name: string; used_count?: number };
 type CategoryField = { id: number; category_id: number; name: string; is_required: boolean; created_at?: string };
 type Currency = { code: string; name: string };
+type TotalsItem = { currency: string; income: number; expense: number; net: number };
 
 type Tx = {
   id: number;
@@ -110,6 +112,8 @@ export function TransactionsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [items, setItems] = useState<Tx[]>([]);
   const [total, setTotal] = useState<number>(0);
+  const [totals, setTotals] = useState<TotalsItem[]>([]);
+  const [loadingTotals, setLoadingTotals] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
   const [currencies, setCurrencies] = useState<Currency[]>([]);
@@ -432,6 +436,16 @@ export function TransactionsPage() {
     }
   }
 
+  async function loadTotals(filters: Record<string, any>) {
+    setLoadingTotals(true);
+    try {
+      const res = await api.get("/transactions/totals", { params: filters });
+      setTotals(((res.data && res.data.items) || []) as TotalsItem[]);
+    } finally {
+      setLoadingTotals(false);
+    }
+  }
+
   useEffect(() => {
     loadMeta().catch(() => {});
   }, []);
@@ -441,6 +455,12 @@ export function TransactionsPage() {
     load(appliedFilters).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [appliedFilters, page, pageSize, sortKey, sortDir]);
+
+  useEffect(() => {
+    if (!appliedFilters) return;
+    loadTotals(appliedFilters).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [appliedFilters]);
 
   useEffect(() => {
     const filters = buildFilterParams();
@@ -615,6 +635,7 @@ export function TransactionsPage() {
       setAppliedFilters(filters);
       setAppliedFilterKey(key);
       await load(filters);
+      await loadTotals(filters);
     } finally {
       setSaving(false);
     }
@@ -624,7 +645,10 @@ export function TransactionsPage() {
     const ok = await confirm({ message: t("confirmDeleteTx"), danger: true });
     if (!ok) return;
     await api.delete(`/transactions/${txId}`);
-    if (appliedFilters) await load(appliedFilters);
+    if (appliedFilters) {
+      await load(appliedFilters);
+      await loadTotals(appliedFilters);
+    }
   }
 
   async function toggleVoided(tx: Tx) {
@@ -634,7 +658,10 @@ export function TransactionsPage() {
     });
     if (!ok) return;
     await api.patch(`/transactions/${tx.id}`, { is_voided: !tx.is_voided });
-    if (appliedFilters) await load(appliedFilters);
+    if (appliedFilters) {
+      await load(appliedFilters);
+      await loadTotals(appliedFilters);
+    }
   }
 
   async function bulk(action: "void" | "restore" | "delete") {
@@ -652,7 +679,10 @@ export function TransactionsPage() {
     if (!ok) return;
     await api.post("/transactions/bulk", { ids, action });
     setSelectedIds(new Set());
-    if (appliedFilters) await load(appliedFilters);
+    if (appliedFilters) {
+      await load(appliedFilters);
+      await loadTotals(appliedFilters);
+    }
   }
 
   async function bulkSetCategories() {
@@ -671,7 +701,10 @@ export function TransactionsPage() {
       setOpenBulkCategories(false);
       setBulkCategories([]);
       setSelectedIds(new Set());
-      if (appliedFilters) await load(appliedFilters);
+      if (appliedFilters) {
+        await load(appliedFilters);
+        await loadTotals(appliedFilters);
+      }
     } finally {
       setBulkSaving(false);
     }
@@ -990,6 +1023,24 @@ export function TransactionsPage() {
             </Stack>
           ) : null}
         </Stack>
+        {loadingTotals ? (
+          <Typography variant="body2" sx={{ opacity: 0.7, mb: 1 }}>
+            {t("loading")}
+          </Typography>
+        ) : totals.length ? (
+          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" sx={{ mb: 1 }}>
+            {totals.map((x) => (
+              <Chip
+                key={x.currency}
+                size="small"
+                variant="outlined"
+                label={`${x.currency}  ${t("income")}: ${formatMoney(x.income)}  ${t("expense")}: ${formatMoney(
+                  x.expense
+                )}  ${t("net")}: ${formatMoney(x.net)}`}
+              />
+            ))}
+          </Stack>
+        ) : null}
         <TableContainer sx={{ overflowX: "auto" }}>
           <Table size="small" sx={{ tableLayout: "fixed", minWidth: tableMinWidth }}>
             <TableHead>
@@ -1136,7 +1187,7 @@ export function TransactionsPage() {
                       {it.type === "income" ? t("income") : t("expense")}
                     </Typography>
                   </TableCell>
-                  <TableCell align="right">{it.amount.toFixed(2)}</TableCell>
+                  <TableCell align="right">{formatMoney(it.amount)}</TableCell>
                   <TableCell align="left">{it.currency}</TableCell>
                   <TableCell>
                     {it.categories.map((c) => (

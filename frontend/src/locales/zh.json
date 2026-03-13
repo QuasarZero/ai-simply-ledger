@@ -67,6 +67,8 @@
   "page": "页码",
   "custom": "自定义",
   "trend": "趋势",
+  "monthlyTrend": "月度趋势",
+  "monthsSpan": "月份跨度",
   "incomeVsExpense": "收入 vs 支出",
   "categoryShareAmount": "分类占比（金额）",
   "categoryShareCount": "分类占比（次数）",

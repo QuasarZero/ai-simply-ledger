@@ -269,7 +269,18 @@ export function DashboardPage() {
 
       <Suspense fallback={<Paper sx={{ p: 2 }}>{t("loading")}</Paper>}>
         <TabPanel value={tab} index={0}>
-          {loading ? <Paper sx={{ p: 2 }}>{t("loading")}</Paper> : <OverviewTab data={data} />}
+          {loading ? (
+            <Paper sx={{ p: 2 }}>{t("loading")}</Paper>
+          ) : (
+            <OverviewTab
+              data={data}
+              preset={preset}
+              end={end}
+              baseCurrency={baseCurrency}
+              isAdmin={isAdmin}
+              selectedUserId={selectedUserId}
+            />
+          )}
         </TabPanel>
         <TabPanel value={tab} index={1}>
           {loading ? <Paper sx={{ p: 2 }}>{t("loading")}</Paper> : <CategoriesTab data={data} />}

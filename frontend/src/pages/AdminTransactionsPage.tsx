@@ -40,6 +40,7 @@ import { usePersistedDateRange } from "../hooks/usePersistedDateRange";
 import { useConfirm } from "../hooks/useConfirm";
 import { safeParseJson } from "../storage";
 import { PaginationBar } from "../components/PaginationBar";
+import { formatMoney } from "../formatMoney";
 
 type Tx = {
   id: number;
@@ -78,6 +79,7 @@ type Category = { id: number; name: string };
 type Tag = { id: number; name: string };
 type User = { id: number; email: string; username: string };
 type CategoryField = { id: number; category_id: number; name: string; is_required: boolean; created_at?: string };
+type TotalsItem = { currency: string; income: number; expense: number; net: number };
 
 type EmptyFieldFilterOption = { kind: "empty" };
 type FieldFilterOption = string | EmptyFieldFilterOption;
@@ -99,6 +101,8 @@ export function AdminTransactionsPage() {
   const navigate = useNavigate();
   const [items, setItems] = useState<Tx[]>([]);
   const [total, setTotal] = useState<number>(0);
+  const [totals, setTotals] = useState<TotalsItem[]>([]);
+  const [loadingTotals, setLoadingTotals] = useState(false);
   const [users, setUsers] = useState<User[]>([]);
   const [loadingMeta, setLoadingMeta] = useState(false);
   const [loadingList, setLoadingList] = useState(false);
@@ -424,11 +428,27 @@ export function AdminTransactionsPage() {
     }
   }
 
+  async function loadTotals(filters: Record<string, any>) {
+    setLoadingTotals(true);
+    try {
+      const res = await api.get("/admin/transactions/totals", { params: filters });
+      setTotals(((res.data && res.data.items) || []) as TotalsItem[]);
+    } finally {
+      setLoadingTotals(false);
+    }
+  }
+
   useEffect(() => {
     if (!appliedFilters) return;
     load(appliedFilters).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [appliedFilters, page, pageSize, sortKey, sortDir]);
+
+  useEffect(() => {
+    if (!appliedFilters) return;
+    loadTotals(appliedFilters).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [appliedFilters]);
 
   useEffect(() => {
     const filters = buildFilterParams();
@@ -485,7 +505,10 @@ export function AdminTransactionsPage() {
     const ok = await confirm({ message: t("confirmDeleteTx"), danger: true });
     if (!ok) return;
     await api.delete(`/admin/transactions/${txId}`);
-    if (appliedFilters) await load(appliedFilters);
+    if (appliedFilters) {
+      await load(appliedFilters);
+      await loadTotals(appliedFilters);
+    }
   }
 
   async function toggleVoided(tx: Tx) {
@@ -495,7 +518,10 @@ export function AdminTransactionsPage() {
     });
     if (!ok) return;
     await api.patch(`/admin/transactions/${tx.id}`, { is_voided: !tx.is_voided });
-    if (appliedFilters) await load(appliedFilters);
+    if (appliedFilters) {
+      await load(appliedFilters);
+      await loadTotals(appliedFilters);
+    }
   }
 
   async function bulk(action: "void" | "restore" | "delete") {
@@ -513,7 +539,10 @@ export function AdminTransactionsPage() {
     if (!ok) return;
     await api.post("/admin/transactions/bulk", { ids, action });
     setSelectedIds(new Set());
-    if (appliedFilters) await load(appliedFilters);
+    if (appliedFilters) {
+      await load(appliedFilters);
+      await loadTotals(appliedFilters);
+    }
   }
 
   async function bulkSetCategories() {
@@ -532,7 +561,10 @@ export function AdminTransactionsPage() {
       setOpenBulkCategories(false);
       setBulkCategories([]);
       setSelectedIds(new Set());
-      if (appliedFilters) await load(appliedFilters);
+      if (appliedFilters) {
+        await load(appliedFilters);
+        await loadTotals(appliedFilters);
+      }
     } finally {
       setBulkSaving(false);
     }
@@ -860,6 +892,24 @@ export function AdminTransactionsPage() {
           ) : null}
           <Box sx={{ flexGrow: 1 }} />
         </Stack>
+        {loadingTotals ? (
+          <Typography variant="body2" sx={{ opacity: 0.7, mb: 1 }}>
+            {t("loading")}
+          </Typography>
+        ) : totals.length ? (
+          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" sx={{ mb: 1 }}>
+            {totals.map((x) => (
+              <Chip
+                key={x.currency}
+                size="small"
+                variant="outlined"
+                label={`${x.currency}  ${t("income")}: ${formatMoney(x.income)}  ${t("expense")}: ${formatMoney(
+                  x.expense
+                )}  ${t("net")}: ${formatMoney(x.net)}`}
+              />
+            ))}
+          </Stack>
+        ) : null}
         <TableContainer sx={{ overflowX: "auto" }}>
           <Table size="small" sx={{ tableLayout: "fixed", minWidth: tableMinWidth }}>
             <TableHead>
@@ -1020,7 +1070,7 @@ export function AdminTransactionsPage() {
                       {it.type === "income" ? t("income") : t("expense")}
                     </Typography>
                   </TableCell>
-                  <TableCell align="right">{it.amount.toFixed(2)}</TableCell>
+                  <TableCell align="right">{formatMoney(it.amount)}</TableCell>
                   <TableCell align="left">{it.currency}</TableCell>
                   <TableCell>
                     {(it.categories || []).map((c) => (
