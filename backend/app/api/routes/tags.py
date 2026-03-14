@@ -23,8 +23,6 @@ def list_tags(db: Session = Depends(get_db), _: User = Depends(get_current_user)
             func.count(transaction_tags.c.transaction_id).label("used_count"),
         )
         .outerjoin(transaction_tags, Tag.id == transaction_tags.c.tag_id)
-        .outerjoin(Transaction, Transaction.id == transaction_tags.c.transaction_id)
-        .filter((Transaction.id.is_(None)) | (Transaction.is_voided.is_(False)))
         .group_by(Tag.id)
         .order_by(Tag.name.asc())
         .all()
