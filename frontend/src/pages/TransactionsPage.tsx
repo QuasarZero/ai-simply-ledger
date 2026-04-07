@@ -615,7 +615,7 @@ export function TransactionsPage() {
       amount,
       currency,
       occurred_at: occurredAt.toISOString(),
-      note: note || null,
+      note: note.trim() ? note : "",
       category_ids: selectedCategories.map((c) => c.id),
       tag_ids: selectedTags.map((x) => x.id),
       field_values: Object.entries(fieldValueMap)

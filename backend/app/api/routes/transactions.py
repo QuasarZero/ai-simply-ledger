@@ -749,7 +749,8 @@ def update_transaction(
         tx.currency = _require_enabled_currency(db, payload.currency)
     if payload.occurred_at:
         tx.occurred_at = payload.occurred_at
-    if payload.note is not None:
+    # Allow clearing note by sending explicit null.
+    if "note" in payload.model_fields_set:
         tx.note = payload.note
     if payload.is_voided is not None:
         tx.is_voided = payload.is_voided

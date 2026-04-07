@@ -77,7 +77,8 @@ def update_category(
         if db.query(Category).filter(Category.name == payload.name).first():
             raise HTTPException(status_code=400, detail="Name already exists")
         c.name = payload.name
-    if payload.description is not None:
+    # Allow clearing description by sending explicit null.
+    if "description" in payload.model_fields_set:
         c.description = payload.description
     db.commit()
     db.refresh(c)
