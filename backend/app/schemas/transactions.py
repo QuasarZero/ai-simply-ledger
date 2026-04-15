@@ -71,6 +71,17 @@ class TransactionListAdmin(BaseModel):
     total: int
 
 
+class TransactionTotalsItem(BaseModel):
+    currency: str
+    income: float
+    expense: float
+    net: float
+
+
+class TransactionTotalsOut(BaseModel):
+    items: list[TransactionTotalsItem]
+
+
 class BulkActionIn(BaseModel):
     ids: list[int]
     action: str = Field(pattern="^(void|restore|delete|set_categories)$")

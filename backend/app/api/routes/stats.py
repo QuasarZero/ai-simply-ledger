@@ -13,8 +13,10 @@ from app.models import Transaction, User
 from app.schemas.stats import (
     ByCategory,
     ByDay,
+    ByMonth,
     DashboardOut,
     NameId,
+    MonthlyTrendOut,
     PieSlice,
     SummaryOut,
     TopItem,
@@ -32,6 +34,115 @@ settings = get_settings()
 
 def _to_date_str(dt: datetime) -> str:
     return dt.date().isoformat()
+
+
+def _coerce_date(value) -> date | None:
+    if value is None:
+        return None
+    if isinstance(value, date):
+        return value
+    return date.fromisoformat(str(value))
+
+
+def _month_start(d: date) -> date:
+    return date(d.year, d.month, 1)
+
+
+def _add_months(d: date, months: int) -> date:
+    # d is assumed to be a month start
+    idx = (d.year * 12) + (d.month - 1) + months
+    y = idx // 12
+    m = (idx % 12) + 1
+    return date(y, m, 1)
+
+
+def _format_missing_fx_error(*, missing_fx: set[tuple[str, str]], missing_days: set[str]) -> str:
+    pairs = ", ".join(sorted({f"{a}->{b}" for (a, b) in missing_fx}))
+    days_sorted = sorted(missing_days)
+    days_preview = ", ".join(days_sorted[:5])
+    more = max(0, len(days_sorted) - 5)
+    days_part = f"{days_preview}{'' if more == 0 else f' ...(+{more} more)'}"
+    return f"Missing FX rates for {pairs} on dates: {days_part}. Please sync FX rates in Admin > FX rates."
+
+
+@router.get("/monthly_trend", response_model=MonthlyTrendOut)
+def monthly_trend(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    months: int = 12,
+    end: date | None = None,
+    base_currency: str = "CNY",
+    user_id: int | None = None,
+):
+    if months < 1:
+        raise HTTPException(status_code=400, detail="months must be >= 1")
+    if months > 60:
+        raise HTTPException(status_code=400, detail="months too large (max 60)")
+
+    base_currency = base_currency.upper()
+    end_day = _coerce_date(end) or datetime.now(settings.tzinfo).date()
+    end_dt = datetime.combine(end_day, datetime.max.time()).replace(tzinfo=settings.tzinfo)
+    start_month = _add_months(_month_start(end_day), -(months - 1))
+    start_dt = datetime.combine(start_month, datetime.min.time()).replace(tzinfo=settings.tzinfo)
+
+    requested_user_id: int | None = None
+    effective_user_id: int | None = None
+
+    query = (
+        db.query(Transaction.type, Transaction.amount, Transaction.currency, Transaction.occurred_at, Transaction.user_id)
+        .filter(Transaction.is_voided.is_(False))
+        .filter(Transaction.occurred_at >= start_dt, Transaction.occurred_at <= end_dt)
+    )
+    if current_user.is_admin and user_id is not None:
+        requested_user_id = user_id
+        if user_id != 0:
+            query = query.filter(Transaction.user_id == user_id)
+            effective_user_id = user_id
+        else:
+            effective_user_id = None
+    else:
+        query = query.filter(Transaction.user_id == current_user.id)
+        requested_user_id = current_user.id
+        effective_user_id = current_user.id
+
+    rows = query.all()
+
+    needed = {base_currency, "USD", *(str(r.currency) for r in rows)}
+    series = load_usd_rate_series(db, needed, end_day)
+
+    by_month: dict[str, dict[str, float]] = defaultdict(lambda: {"income": 0.0, "expense": 0.0})
+    missing_fx: set[tuple[str, str]] = set()
+    missing_days: set[str] = set()
+
+    for r in rows:
+        local_day = r.occurred_at.astimezone(settings.tzinfo).date()
+        amt_base = convert_amount_by_usd_series(float(r.amount), str(r.currency), base_currency, local_day, series)
+        if amt_base is None:
+            missing_fx.add((str(r.currency).upper(), base_currency))
+            missing_days.add(local_day.isoformat())
+            continue
+        key = f"{local_day.year:04d}-{local_day.month:02d}"
+        if r.type == "income":
+            by_month[key]["income"] += float(amt_base)
+        else:
+            by_month[key]["expense"] += float(amt_base)
+
+    if missing_fx:
+        raise HTTPException(status_code=400, detail=_format_missing_fx_error(missing_fx=missing_fx, missing_days=missing_days))
+
+    out_months: list[ByMonth] = []
+    cursor = start_month
+    for _ in range(months):
+        k = f"{cursor.year:04d}-{cursor.month:02d}"
+        out_months.append(ByMonth(month=k, income=by_month[k]["income"], expense=by_month[k]["expense"]))
+        cursor = _add_months(cursor, 1)
+
+    return MonthlyTrendOut(
+        requested_user_id=requested_user_id,
+        effective_user_id=effective_user_id,
+        currency=base_currency,
+        months=out_months,
+    )
 
 
 @router.get("/summary", response_model=SummaryOut)

@@ -175,6 +175,7 @@ class FloatRatesProvider:
 
     name: str = "floatrates"
     supports_historical: bool = False
+    base_url: str = "http://www.floatrates.com"
 
     def fetch_rates_for_date(
         self, day: date, *, base: str = "USD", currencies: list[str] | None = None
@@ -183,8 +184,8 @@ class FloatRatesProvider:
         if base_u != "USD":
             raise FxProviderError("floatrates provider only supports base USD in this app")
         # endpoint always returns latest; caller should decide day applicability.
-        url = "http://www.floatrates.com/daily/usd.json"
-        with httpx.Client(timeout=20) as client:
+        url = f"{self.base_url.rstrip('/')}/daily/usd.json"
+        with httpx.Client(timeout=20, follow_redirects=True) as client:
             resp = client.get(url)
             _raise_if_rate_limited(resp)
             resp.raise_for_status()
@@ -210,7 +211,33 @@ class FloatRatesProvider:
         return out
 
     def fetch_currency_catalog(self) -> dict[str, str]:
-        return {}
+        # FloatRates doesn't provide a dedicated catalog endpoint, but the daily USD snapshot
+        # contains currency names and covers many currencies.
+        url = f"{self.base_url.rstrip('/')}/daily/usd.json"
+        try:
+            with httpx.Client(timeout=20, follow_redirects=True) as client:
+                resp = client.get(url)
+                _raise_if_rate_limited(resp)
+                resp.raise_for_status()
+                data = resp.json()
+        except Exception:
+            return {}
+
+        out: dict[str, str] = {"USD": "United States Dollar"}
+        if not isinstance(data, dict):
+            return out
+
+        for code_l, obj in data.items():
+            code = str(code_l).strip().upper()
+            if not code:
+                continue
+            name = code
+            if isinstance(obj, dict):
+                # Common fields: "name" / "code" / "alphaCode"
+                if obj.get("name"):
+                    name = str(obj.get("name")).strip() or code
+            out[code] = name
+        return out
 
 
 @dataclass(frozen=True)

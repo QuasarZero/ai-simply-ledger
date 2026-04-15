@@ -16,6 +16,19 @@ class ByDay(BaseModel):
     expense: float
 
 
+class ByMonth(BaseModel):
+    month: str  # YYYY-MM
+    income: float
+    expense: float
+
+
+class MonthlyTrendOut(BaseModel):
+    requested_user_id: int | None = None
+    effective_user_id: int | None = None
+    currency: str
+    months: list[ByMonth]
+
+
 class ByCategory(BaseModel):
     category_id: int
     name: str

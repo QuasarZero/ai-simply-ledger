@@ -202,7 +202,7 @@ export function CategoriesPage() {
     setSaving(true);
     try {
       if (editing) {
-        await api.patch(`/categories/${editing.id}`, { name, description: description || null });
+        await api.patch(`/categories/${editing.id}`, { name, description: description.trim() ? description : "" });
       } else {
         await api.post("/categories", { name, description: description || null });
       }
