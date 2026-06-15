@@ -89,7 +89,7 @@ export default function OverviewTab({
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="date" />
               <YAxis />
-              <Tooltip formatter={(v: any) => formatMoney(Number(v))} />
+              <Tooltip labelStyle={{ color: '#333333' }} formatter={(v: any) => formatMoney(Number(v))} />
               <Line
                 type="monotone"
                 dataKey="income"
@@ -194,7 +194,7 @@ export default function OverviewTab({
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="month" />
                 <YAxis />
-                <Tooltip formatter={(v: any) => formatMoney(Number(v))} />
+                <Tooltip labelStyle={{ color: '#333333' }} formatter={(v: any) => formatMoney(Number(v))} />
                 <Line
                   type="monotone"
                   dataKey="income"
